@@ -109,6 +109,25 @@ csv_rx_type_map = {
         CSV_LENS_TYPE_POLARIZED_SUNGLASSES: rx_type_single_vision
     }
 
+# default rx
+def getDefaultRx():
+    return {
+        "birthYear": 1993,
+        "pdType": "Single",
+        "pdSingle": 64.0,
+        "od": {
+            "axis": 0.0,
+            "cyl": 0.0,
+            "sph": -2.0
+        },
+        "os": {
+            "axis": 0.0,
+            "cyl": 0.0,
+            "sph": -2.0
+        },
+        "prismEnabled": False
+    }
+
 # ==================== Main Function ====================
 
 def gen_rx_type(platform: Optional[str], lens_type: str) -> Optional[RxType]:

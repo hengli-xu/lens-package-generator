@@ -2,6 +2,8 @@ import requests
 import json
 from http.cookies import SimpleCookie
 import yaml
+
+from lenspackage.LensPackageConstant import getDefaultRx
 from settings import env_key, yaml_cfg
 
 
@@ -24,24 +26,9 @@ class LensTypeService:
         print(url)
         print(self.session)
 
-        prescription_data = {
-            "type": f"{csvPackage.rxType.prescription_type}",
-            "birthYear": 1993,
-            "pdType": "Single",
-            "pdSingle": 64.0,
-            "od": {
-                "axis": 0.0,
-                "cyl": 0.0,
-                "sph": -2.0
-            },
-            "os": {
-                "axis": 0.0,
-                "cyl": 0.0,
-                "sph": -2.0
-            },
-            "prismEnabled": False
-        }
-        
+        prescription_data = getDefaultRx()
+        prescription_data["type"] = f"{csvPackage.rxType.prescription_type}"
+
         # 只有当progressiveUsage不为None时才添加
         if csvPackage.rxType.progressive_usage:
             prescription_data["progressiveUsage"] = f"{csvPackage.rxType.progressive_usage}"
@@ -56,7 +43,7 @@ class LensTypeService:
         response = self.session.post(url, headers=self.headers, json=data)
 
         if response.status_code == 200:
-            print("Usage types retrieved successfully:", response.text)
+            print("Usage types retrieved successfully: url ", url)
             return response.json()
         else:
             print(f"Failed to retrieve usage types, status code: {response.status_code}")

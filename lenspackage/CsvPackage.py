@@ -8,7 +8,7 @@
 # Tint(e.g. Gray/light Green),
 # Coating(e.g. oil-res coating),
 # platform
-from lenspackage.lens_package_simple import gen_rx_type
+from lenspackage.LensPackageConstant import gen_rx_type
 
 
 class CsvPackage:

@@ -5,7 +5,7 @@ from lenspackage.CsvPackage import CsvProductPackageList, CsvPackage
 from lenspackage.lcapi.LensTypeService import LensTypeService
 from lenspackage.lcapi.PdpService import PdpService
 from lenspackage.lcapi.RxTypeService import RxTypeService
-from lenspackage.lens_package_simple import csv_lens_type_map
+from lenspackage.LensPackageConstant import csv_lens_type_map
 from lenspackage.parsecsv.CsvParser import parseCsvAndGenProductPackagesList, parseCsvAndGenPackageDetails
 from settings import env_key, yaml_cfg
 
