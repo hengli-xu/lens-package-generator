@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>sales_by_daypart_report_1.html</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>sales_by_daypart_report_1.html</h1>
+    <p>Report generated on 08-Dec-2022 at 10:48:24 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>/Users/sshao/Library/Java/JavaVirtualMachines/jdk-17.0.3-block.jdk/Contents/Home</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "pytest": "7.2.0"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>macOS-13.0.1-arm64-arm-64bit</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.2.0", "metadata": "2.0.4", "rerunfailures": "10.3", "xdist": "3.1.0"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.9</td></tr></table>
+    <h2>Summary</h2>
+    <p>87 tests ran in 65.27 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">86 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="rerun">1 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_time_frame[ytd]</td>
+          <td class="col-duration">2.05</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/><br/>self = &lt;test.test_cash_iq_insights.test_insights_sales_by_daypart.TestSalesByDaypart object at 0x104b67700&gt;, time_frame = &#x27;ytd&#x27;<br/><br/>    @pytest.mark.parametrize(&quot;time_frame&quot;, [&quot;7d&quot;, &quot;ly&quot;, &quot;ytd&quot;])<br/>    def test_sales_by_daypart_via_time_frame(self, time_frame):<br/>        print(&quot;Start testing with Time Frame {0}.&quot;.format(time_frame))<br/>    <br/>        # get total sales from Top_line API<br/>        topline_data = insights_service.get_topline_performance(time_frame=time_frame)<br/>        sales_via_topline = round(float(json.loads(topline_data)[&quot;total_sales&quot;]), 2)<br/>    <br/>        # get sales from sales_by_daypart API<br/>        sales_by_state_data = json.loads(insights_service.get_sales_by_daypart(time_frame=time_frame))<br/>        sales_list = sales_by_state_data[&quot;data&quot;]<br/>    <br/>        # calculate the amount of sales<br/>        total_sales = self.calculate_sales_from_daypart(sales_list)<br/>    <br/>        # verify total sales are same<br/>        print(&quot;Compare sales from topline {0} == total sales of dayparts {1}&quot;.format(sales_via_topline, total_sales))<br/>&gt;       assert_that(sales_via_topline, equal_to(total_sales))<br/><span class="error">E       AssertionError: </span><br/><span class="error">E       Expected: &lt;163078390.07&gt;</span><br/><span class="error">E            but: was &lt;174377396.39&gt;</span><br/><br/>test/test_cash_iq_insights/test_insights_sales_by_daypart.py:71: AssertionError[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with Time Frame ytd.
+21050325.459999993
+41257186.25999999
+61723973.739999995
+84536175.67
+111071667.36
+137227275.21
+163078390.07
+Compare sales from topline 174377396.39 == total sales of dayparts 163078390.07
+<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with Time Frame ytd.
+21050325.459999993
+41257186.25999999
+61723973.739999995
+84536175.67
+111071667.36
+137227275.21
+163078390.07
+Compare sales from topline 174377396.39 == total sales of dayparts 163078390.07
+<br/></div></td></tr></tbody>
+      <tbody class="rerun results-table-row">
+        <tr>
+          <td class="col-result">Rerun</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_time_frame[ytd]</td>
+          <td class="col-duration">1.99</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/><br/>self = &lt;test.test_cash_iq_insights.test_insights_sales_by_daypart.TestSalesByDaypart object at 0x104b67700&gt;, time_frame = &#x27;ytd&#x27;<br/><br/>    @pytest.mark.parametrize(&quot;time_frame&quot;, [&quot;7d&quot;, &quot;ly&quot;, &quot;ytd&quot;])<br/>    def test_sales_by_daypart_via_time_frame(self, time_frame):<br/>        print(&quot;Start testing with Time Frame {0}.&quot;.format(time_frame))<br/>    <br/>        # get total sales from Top_line API<br/>        topline_data = insights_service.get_topline_performance(time_frame=time_frame)<br/>        sales_via_topline = round(float(json.loads(topline_data)[&quot;total_sales&quot;]), 2)<br/>    <br/>        # get sales from sales_by_daypart API<br/>        sales_by_state_data = json.loads(insights_service.get_sales_by_daypart(time_frame=time_frame))<br/>        sales_list = sales_by_state_data[&quot;data&quot;]<br/>    <br/>        # calculate the amount of sales<br/>        total_sales = self.calculate_sales_from_daypart(sales_list)<br/>    <br/>        # verify total sales are same<br/>        print(&quot;Compare sales from topline {0} == total sales of dayparts {1}&quot;.format(sales_via_topline, total_sales))<br/>&gt;       assert_that(sales_via_topline, equal_to(total_sales))<br/><span class="error">E       AssertionError: </span><br/><span class="error">E       Expected: &lt;163078390.07&gt;</span><br/><span class="error">E            but: was &lt;174377396.39&gt;</span><br/><br/>test/test_cash_iq_insights/test_insights_sales_by_daypart.py:71: AssertionError<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with Time Frame ytd.
+21050325.459999993
+41257186.25999999
+61723973.739999995
+84536175.67
+111071667.36
+137227275.21
+163078390.07
+Compare sales from topline 174377396.39 == total sales of dayparts 163078390.07
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-merchant_online-cash_card]</td>
+          <td class="col-duration">2.34</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND merchant_online AND new.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-in_store-cash_card]</td>
+          <td class="col-duration">2.47</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND in_store AND new.
+9590.549999999996
+19858.17
+33305.119999999995
+52526.969999999994
+86340.74999999997
+110213.76
+123652.95999999999
+Compare sales from topline 123652.96 == total sales of dayparts 123652.96
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-online-cash_card]</td>
+          <td class="col-duration">2.49</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND online AND new.
+6504.860000000001
+12590.21
+20545.78
+29056.65
+39232.78
+50324.909999999996
+57528.39
+Compare sales from topline 57528.39 == total sales of dayparts 57528.39
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-merchant_online-cash_app_pay]</td>
+          <td class="col-duration">2.26</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND merchant_online AND new.
+4913.509999999998
+10260.889999999996
+18409.069999999996
+24257.219999999994
+29658.589999999993
+35921.49999999999
+42532.719999999994
+Compare sales from topline 42532.72 == total sales of dayparts 42532.72
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-in_store-cash_app_pay]</td>
+          <td class="col-duration">2.25</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND in_store AND new.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-online-cash_app_pay]</td>
+          <td class="col-duration">2.43</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND online AND new.
+1082.7
+2172.77
+3191.17
+4087.25
+5385.05
+6009.79
+6426.16
+Compare sales from topline 6426.16 == total sales of dayparts 6426.16
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-in_store-afterpay]</td>
+          <td class="col-duration">2.12</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND in_store AND new.
+13912.810000000001
+26332.239999999998
+39566.380000000005
+57137.68000000001
+87864.12000000001
+136432.95
+171779.66
+Compare sales from topline 171779.66 == total sales of dayparts 171779.66
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-merchant_online-afterpay]</td>
+          <td class="col-duration">2.36</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND merchant_online AND new.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-online-afterpay]</td>
+          <td class="col-duration">2.33</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND online AND new.
+177884.19000000006
+329177.57000000007
+482163.73000000004
+654549.3
+866479.3500000001
+1074275.26
+1302329.18
+Compare sales from topline 1302329.18 == total sales of dayparts 1302329.18
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-in_store-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.32</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND in_store AND new.
+9590.549999999996
+19858.17
+33305.119999999995
+52526.969999999994
+86340.74999999997
+110213.76
+123652.95999999999
+Compare sales from topline 123652.96 == total sales of dayparts 123652.96
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-merchant_online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.38</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND merchant_online AND new.
+4913.509999999998
+10260.889999999996
+18409.069999999996
+24257.219999999994
+29658.589999999993
+35921.49999999999
+42532.719999999994
+Compare sales from topline 42532.72 == total sales of dayparts 42532.72
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.10</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND online AND new.
+7587.56
+14762.98
+23736.95
+33143.90000000001
+44617.83000000001
+56334.70000000001
+63954.55000000002
+Compare sales from topline 63954.55 == total sales of dayparts 63954.55
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-in_store-cash_card+afterpay]</td>
+          <td class="col-duration">2.19</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND in_store AND new.
+23503.359999999997
+46190.41
+72871.5
+109664.65
+174204.86999999997
+246646.70999999996
+295432.62
+Compare sales from topline 295432.62 == total sales of dayparts 295432.62
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-online-cash_card+afterpay]</td>
+          <td class="col-duration">2.13</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND online AND new.
+184389.05000000008
+341767.78
+502709.51
+683605.95
+905712.1299999999
+1124600.17
+1359857.5699999998
+Compare sales from topline 1359857.57 == total sales of dayparts 1359857.57
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-merchant_online-cash_card+afterpay]</td>
+          <td class="col-duration">2.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND merchant_online AND new.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-in_store-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.09</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND in_store AND new.
+13912.810000000001
+26332.239999999998
+39566.380000000005
+57137.68000000001
+87864.12000000001
+136432.95
+171779.66
+Compare sales from topline 171779.66 == total sales of dayparts 171779.66
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-merchant_online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND merchant_online AND new.
+4913.509999999998
+10260.889999999996
+18409.069999999996
+24257.219999999994
+29658.589999999993
+35921.49999999999
+42532.719999999994
+Compare sales from topline 42532.72 == total sales of dayparts 42532.72
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.33</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND online AND new.
+178966.89000000004
+331350.3400000001
+485354.9000000001
+658636.55
+871864.4
+1080285.05
+1308755.34
+Compare sales from topline 1308755.34 == total sales of dayparts 1308755.34
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-in_store-all]</td>
+          <td class="col-duration">2.25</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND in_store AND new.
+23503.359999999997
+46190.41
+72871.5
+109664.65
+174204.86999999997
+246646.70999999996
+295432.62
+Compare sales from topline 295432.62 == total sales of dayparts 295432.62
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-merchant_online-all]</td>
+          <td class="col-duration">2.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND merchant_online AND new.
+4913.509999999998
+10260.889999999996
+18409.069999999996
+24257.219999999994
+29658.589999999993
+35921.49999999999
+42532.719999999994
+Compare sales from topline 42532.72 == total sales of dayparts 42532.72
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-online-all]</td>
+          <td class="col-duration">2.21</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND online AND new.
+185471.75000000003
+343940.55000000005
+505900.68000000005
+687693.2000000001
+911097.18
+1130609.96
+1366283.73
+Compare sales from topline 1366283.73 == total sales of dayparts 1366283.73
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.19</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND online AND existing.
+1837.9899999999998
+4172.65
+6014.42
+8554.21
+10202.369999999999
+11521.63
+12330.59
+Compare sales from topline 12330.59 == total sales of dayparts 12330.59
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-all-cash_card]</td>
+          <td class="col-duration">2.28</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND all AND new.
+16095.409999999996
+32448.379999999997
+53850.899999999994
+81583.62
+125573.52999999997
+160538.66999999998
+181181.34999999998
+Compare sales from topline 181181.35 == total sales of dayparts 181181.35
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-in_store-cash_card+afterpay]</td>
+          <td class="col-duration">2.08</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND in_store AND existing.
+27813.809999999998
+52399.11
+84328.05
+117565.95000000001
+178235.06
+270012.33999999997
+338321.95999999996
+Compare sales from topline 338321.96 == total sales of dayparts 338321.96
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-online-cash_card+afterpay]</td>
+          <td class="col-duration">1.95</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND online AND existing.
+330994.39
+658410.28
+990471.7
+1341455.33
+1768549.9300000002
+2166923.7
+2602990.97
+Compare sales from topline 2602990.97 == total sales of dayparts 2602990.97
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-all-cash_app_pay]</td>
+          <td class="col-duration">2.06</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND all AND new.
+5996.209999999999
+12433.66
+21600.239999999998
+28344.469999999998
+35043.64
+41931.29
+48958.880000000005
+Compare sales from topline 48958.88 == total sales of dayparts 48958.88
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-in_store-cash_app_pay+afterpay]</td>
+          <td class="col-duration">1.96</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND in_store AND existing.
+25336.329999999998
+47989.97
+77476.53
+107926.44
+164989.41999999998
+253677.83
+319604.70999999996
+Compare sales from topline 319604.71 == total sales of dayparts 319604.71
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.06</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND online AND existing.
+329510.1
+654736.27
+984955.9199999999
+1334014.74
+1759585.82
+2156640.33
+2592017.36
+Compare sales from topline 2592017.36 == total sales of dayparts 2592017.36
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-all-afterpay]</td>
+          <td class="col-duration">2.03</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND all AND new.
+191797.00000000006
+355509.81000000006
+521730.1100000001
+711686.9800000001
+954343.4700000001
+1210708.21
+1474108.8399999999
+Compare sales from topline 1474108.84 == total sales of dayparts 1474108.84
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-in_store-all]</td>
+          <td class="col-duration">2.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND in_store AND existing.
+27813.809999999998
+52399.11
+84328.05
+117565.95000000001
+178235.06
+270012.33999999997
+338321.95999999996
+Compare sales from topline 338321.96 == total sales of dayparts 338321.96
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-online-all]</td>
+          <td class="col-duration">2.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND online AND existing.
+331171.24
+658659.6000000001
+990721.02
+1342012.1400000001
+1769169.06
+2167542.83
+2603669.46
+Compare sales from topline 2603669.46 == total sales of dayparts 2603669.46
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-all-cash_card+cash_app_pay]</td>
+          <td class="col-duration">1.97</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND all AND new.
+22091.620000000003
+44882.04000000001
+75451.14000000001
+109928.09000000003
+160617.16999999998
+202469.96000000002
+230140.23
+Compare sales from topline 230140.23 == total sales of dayparts 230140.23
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-merchant_online-cash_card]</td>
+          <td class="col-duration">1.96</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND merchant_online AND existing.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-all-cash_card+afterpay]</td>
+          <td class="col-duration">2.02</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND all AND new.
+207892.41000000006
+387958.19000000006
+575581.0100000001
+793270.6000000001
+1079917.0
+1371246.88
+1655290.19
+Compare sales from topline 1655290.19 == total sales of dayparts 1655290.19
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-merchant_online-cash_app_pay]</td>
+          <td class="col-duration">2.02</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND merchant_online AND existing.
+1142.1100000000001
+1167.22
+1313.72
+1418.6100000000001
+1740.6000000000001
+2006.21
+2130.02
+Compare sales from topline 2130.02 == total sales of dayparts 2130.02
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-in_store-cash_card]</td>
+          <td class="col-duration">2.12</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND in_store AND existing.
+2477.48
+4409.139999999999
+6851.5199999999995
+9639.51
+13245.64
+16334.509999999998
+18717.25
+Compare sales from topline 18717.25 == total sales of dayparts 18717.25
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-merchant_online-afterpay]</td>
+          <td class="col-duration">1.93</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND merchant_online AND existing.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-in_store-cash_app_pay]</td>
+          <td class="col-duration">1.92</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND in_store AND existing.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-all-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND all AND new.
+197793.21
+367943.47
+543330.35
+740031.45
+989387.1099999999
+1252639.4999999998
+1523067.7199999997
+Compare sales from topline 1523067.72 == total sales of dayparts 1523067.72
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-merchant_online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">1.91</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND merchant_online AND existing.
+1142.1100000000001
+1167.22
+1313.72
+1418.6100000000001
+1740.6000000000001
+2006.21
+2130.02
+Compare sales from topline 2130.02 == total sales of dayparts 2130.02
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-in_store-afterpay]</td>
+          <td class="col-duration">1.94</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND in_store AND existing.
+25336.329999999998
+47989.97
+77476.53
+107926.44
+164989.41999999998
+253677.83
+319604.70999999996
+Compare sales from topline 319604.71 == total sales of dayparts 319604.71
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[new-all-all]</td>
+          <td class="col-duration">2.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND all AND new.
+213888.62
+400391.85
+597181.25
+821615.07
+1114960.64
+1413178.17
+1704249.0699999998
+Compare sales from topline 1704249.07 == total sales of dayparts 1704249.07
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-merchant_online-cash_card+afterpay]</td>
+          <td class="col-duration">1.96</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND merchant_online AND existing.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-in_store-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND in_store AND existing.
+2477.48
+4409.139999999999
+6851.5199999999995
+9639.51
+13245.64
+16334.509999999998
+18717.25
+Compare sales from topline 18717.25 == total sales of dayparts 18717.25
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-online-cash_card]</td>
+          <td class="col-duration">2.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND online AND existing.
+1661.1399999999999
+3923.3299999999995
+5765.099999999999
+7997.4
+9583.24
+10902.5
+11652.1
+Compare sales from topline 11652.1 == total sales of dayparts 11652.1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-merchant_online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.11</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND merchant_online AND existing.
+1142.1100000000001
+1167.22
+1313.72
+1418.6100000000001
+1740.6000000000001
+2006.21
+2130.02
+Compare sales from topline 2130.02 == total sales of dayparts 2130.02
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-all-afterpay]</td>
+          <td class="col-duration">2.15</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND all AND existing.
+354669.57999999996
+702476.9199999999
+1062183.13
+1441384.3699999996
+1923956.1099999996
+2409699.0299999993
+2910943.579999999
+Compare sales from topline 2910943.58 == total sales of dayparts 2910943.58
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-online-cash_app_pay]</td>
+          <td class="col-duration">2.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND online AND existing.
+176.85
+249.32
+556.81
+619.13
+678.49
+Compare sales from topline 678.49 == total sales of dayparts 678.49
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-merchant_online-all]</td>
+          <td class="col-duration">1.93</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND merchant_online AND existing.
+1142.1100000000001
+1167.22
+1313.72
+1418.6100000000001
+1740.6000000000001
+2006.21
+2130.02
+Compare sales from topline 2130.02 == total sales of dayparts 2130.02
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-online-afterpay]</td>
+          <td class="col-duration">1.97</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND online AND existing.
+329333.25
+654486.95
+984706.5999999999
+1333457.93
+1758966.69
+2156021.1999999997
+2591338.8699999996
+Compare sales from topline 2591338.87 == total sales of dayparts 2591338.87
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-all-cash_card+cash_app_pay]</td>
+          <td class="col-duration">3.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND all AND existing.
+5457.580000000001
+9749.01
+14179.66
+19612.33
+25188.61
+29862.350000000002
+33177.86
+Compare sales from topline 33177.86 == total sales of dayparts 33177.86
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-all-cash_card]</td>
+          <td class="col-duration">2.20</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND all AND existing.
+4138.62
+8332.47
+12616.619999999999
+17636.91
+22828.88
+27237.010000000002
+30369.350000000002
+Compare sales from topline 30369.35 == total sales of dayparts 30369.35
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-online-cash_card]</td>
+          <td class="col-duration">2.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND online AND all.
+8166.0
+16513.54
+26310.88
+37054.05
+48816.020000000004
+61227.41
+69180.49
+Compare sales from topline 69180.49 == total sales of dayparts 69180.49
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-all-cash_card+afterpay]</td>
+          <td class="col-duration">2.18</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND all AND existing.
+358808.2
+710809.39
+1074799.75
+1459021.2799999998
+1946784.9899999998
+2436936.0399999996
+2941312.9299999997
+Compare sales from topline 2941312.93 == total sales of dayparts 2941312.93
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-all-cash_app_pay]</td>
+          <td class="col-duration">2.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND all AND existing.
+1318.96
+1416.54
+1563.04
+1975.42
+2359.73
+2625.34
+2808.51
+Compare sales from topline 2808.51 == total sales of dayparts 2808.51
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-online-cash_app_pay]</td>
+          <td class="col-duration">1.97</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND online AND all.
+1259.5500000000002
+2422.09
+3440.4900000000002
+4644.06
+6004.18
+6628.92
+7104.65
+Compare sales from topline 7104.65 == total sales of dayparts 7104.65
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-all-cash_app_pay+afterpay]</td>
+          <td class="col-duration">1.98</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND all AND existing.
+355988.54000000004
+703893.4600000002
+1063746.1700000002
+1443359.79
+1926315.84
+2412324.37
+2913752.09
+Compare sales from topline 2913752.09 == total sales of dayparts 2913752.09
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-online-cash_card+afterpay]</td>
+          <td class="col-duration">2.06</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND online AND all.
+515383.43999999994
+1000178.0599999999
+1493181.21
+2025061.28
+2674262.06
+3291523.87
+3962848.54
+Compare sales from topline 3962848.54 == total sales of dayparts 3962848.54
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-online-afterpay]</td>
+          <td class="col-duration">2.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND online AND all.
+507217.43999999994
+983664.52
+1466870.33
+1988007.23
+2625446.04
+3230296.46
+3893668.05
+Compare sales from topline 3893668.05 == total sales of dayparts 3893668.05
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[existing-all-all]</td>
+          <td class="col-duration">2.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND all AND existing.
+360127.1600000001
+712225.9300000002
+1076362.79
+1460996.7
+1949144.72
+2439561.38
+2944121.44
+Compare sales from topline 2944121.44 == total sales of dayparts 2944121.44
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.21</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND online AND all.
+508476.99
+986086.61
+1470310.8199999998
+1992651.29
+2631450.2199999997
+3236925.38
+3900772.7
+Compare sales from topline 3900772.7 == total sales of dayparts 3900772.7
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.23</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND online AND all.
+9425.550000000001
+18935.63
+29751.370000000003
+41698.11000000001
+54820.200000000004
+67856.33
+76285.14
+Compare sales from topline 76285.14 == total sales of dayparts 76285.14
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-in_store-cash_card]</td>
+          <td class="col-duration">2.41</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND in_store AND all.
+12068.029999999995
+24267.309999999998
+40156.64
+62166.479999999996
+99586.38999999997
+126548.26999999999
+142370.21
+Compare sales from topline 142370.21 == total sales of dayparts 142370.21
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-online-all]</td>
+          <td class="col-duration">2.15</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND online AND all.
+516642.98999999993
+1002600.1499999999
+1496621.6999999997
+2029705.3399999999
+2680266.2399999998
+3298152.7899999996
+3969953.1899999995
+Compare sales from topline 3969953.19 == total sales of dayparts 3969953.19
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-in_store-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.10</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND in_store AND all.
+12068.029999999995
+24267.309999999998
+40156.64
+62166.479999999996
+99586.38999999997
+126548.26999999999
+142370.21
+Compare sales from topline 142370.21 == total sales of dayparts 142370.21
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-in_store-cash_app_pay]</td>
+          <td class="col-duration">2.12</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND in_store AND all.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-in_store-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.03</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND in_store AND all.
+39249.13999999999
+74322.20999999999
+117042.91
+165064.12000000002
+252853.54000000004
+390110.78
+491384.37
+Compare sales from topline 491384.37 == total sales of dayparts 491384.37
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-in_store-cash_card+afterpay]</td>
+          <td class="col-duration">2.06</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND in_store AND all.
+51317.16999999999
+98589.51999999999
+157199.55
+227230.6
+352439.93
+516659.05
+633754.58
+Compare sales from topline 633754.58 == total sales of dayparts 633754.58
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-in_store-afterpay]</td>
+          <td class="col-duration">2.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND in_store AND all.
+39249.13999999999
+74322.20999999999
+117042.91
+165064.12000000002
+252853.54000000004
+390110.78
+491384.37
+Compare sales from topline 491384.37 == total sales of dayparts 491384.37
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-in_store-all]</td>
+          <td class="col-duration">2.13</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND in_store AND all.
+51317.16999999999
+98589.51999999999
+157199.55
+227230.6
+352439.93
+516659.05
+633754.58
+Compare sales from topline 633754.58 == total sales of dayparts 633754.58
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-merchant_online-cash_card]</td>
+          <td class="col-duration">2.25</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND merchant_online AND all.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-merchant_online-cash_app_pay]</td>
+          <td class="col-duration">2.13</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND merchant_online AND all.
+6055.619999999999
+11428.109999999997
+19722.789999999997
+25675.829999999998
+31399.189999999995
+37927.70999999999
+44662.73999999999
+Compare sales from topline 44662.74 == total sales of dayparts 44662.74
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-merchant_online-afterpay]</td>
+          <td class="col-duration">2.09</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND merchant_online AND all.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-merchant_online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.05</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND merchant_online AND all.
+6055.619999999999
+11428.109999999997
+19722.789999999997
+25675.829999999998
+31399.189999999995
+37927.70999999999
+44662.73999999999
+Compare sales from topline 44662.74 == total sales of dayparts 44662.74
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-merchant_online-cash_card+afterpay]</td>
+          <td class="col-duration">2.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND merchant_online AND all.
+Compare sales from topline 0.0 == total sales of dayparts 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-merchant_online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">1.98</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND merchant_online AND all.
+6055.619999999999
+11428.109999999997
+19722.789999999997
+25675.829999999998
+31399.189999999995
+37927.70999999999
+44662.73999999999
+Compare sales from topline 44662.74 == total sales of dayparts 44662.74
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-merchant_online-all]</td>
+          <td class="col-duration">2.02</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND merchant_online AND all.
+6055.619999999999
+11428.109999999997
+19722.789999999997
+25675.829999999998
+31399.189999999995
+37927.70999999999
+44662.73999999999
+Compare sales from topline 44662.74 == total sales of dayparts 44662.74
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-all-cash_card]</td>
+          <td class="col-duration">2.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND all AND all.
+20234.029999999984
+40780.84999999996
+66467.51999999996
+99220.52999999993
+148402.4099999999
+187775.67999999988
+211550.69999999987
+Compare sales from topline 211550.7 == total sales of dayparts 211550.7
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-all-cash_app_pay]</td>
+          <td class="col-duration">2.25</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND all AND all.
+7315.17
+13850.2
+23163.28
+30319.89
+37403.37
+44556.630000000005
+51767.39000000001
+Compare sales from topline 51767.39 == total sales of dayparts 51767.39
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-all-afterpay]</td>
+          <td class="col-duration">2.81</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND all AND all.
+546466.5800000001
+1057986.73
+1583913.2399999998
+2153071.3499999996
+2878299.579999999
+3620407.239999999
+4385052.419999999
+Compare sales from topline 4385052.42 == total sales of dayparts 4385052.42
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-all-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.19</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND all AND all.
+27549.199999999986
+54631.04999999997
+89630.79999999996
+129540.41999999994
+185805.77999999988
+232332.30999999988
+263318.08999999985
+Compare sales from topline 263318.09 == total sales of dayparts 263318.09
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-all-cash_card+afterpay]</td>
+          <td class="col-duration">2.26</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND all AND all.
+566700.61
+1098767.58
+1650380.76
+2252291.88
+3026701.9899999993
+3808182.919999999
+4596603.119999999
+Compare sales from topline 4596603.12 == total sales of dayparts 4596603.12
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-all-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.15</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND all AND all.
+553781.75
+1071836.9300000002
+1607076.52
+2183391.24
+2915702.95
+3664963.87
+4436819.8100000005
+Compare sales from topline 4436819.81 == total sales of dayparts 4436819.81
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_payment_customer_channel[all-all-all]</td>
+          <td class="col-duration">2.10</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND all AND all.
+574015.7799999999
+1112617.78
+1673544.04
+2282611.77
+3064105.36
+3852739.55
+4648370.51
+Compare sales from topline 4648370.51 == total sales of dayparts 4648370.51
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_time_frame[7d]</td>
+          <td class="col-duration">2.10</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with Time Frame 7d.
+574015.7799999999
+1112617.78
+1673544.04
+2282611.77
+3064105.36
+3852739.55
+4648370.51
+Compare sales from topline 4648370.51 == total sales of dayparts 4648370.51
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_daypart.py::TestSalesByDaypart::test_sales_by_daypart_via_time_frame[ly]</td>
+          <td class="col-duration">2.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with Time Frame ly.
+26020853.54
+50005260.97
+74537574.55
+100904084.4
+131927266.60000001
+158275091.66000003
+185491723.02
+Compare sales from topline 185491723.02 == total sales of dayparts 185491723.02
+<br/></div></td></tr></tbody></table></body></html>

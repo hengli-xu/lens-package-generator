@@ -1,0 +1,18 @@
+
+InsightsService:
+  SANDBOX: "https://insights.marketing.us.platform.afterpay-beta.com/insights/cash/v1/merchants"
+
+FusionAuthService:
+  CA:
+    UAT: "https://auth-ca.zenniaws.com"
+    PRODUCTION: "https://fusionauth.us.sqprod.co"
+  US:
+    UAT: "https://auth.zenniaws.com"
+    PRODUCTION: "https://fusionauth.ca.sqprod.co"
+
+ATGService:
+  CA:
+    QA: "https://qaca.zenniaws.com"
+  US:
+    QA: "https://qaus.zenniaws.com"
+

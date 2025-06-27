@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>sales_by_state_report_1.html</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>sales_by_state_report_1.html</h1>
+    <p>Report generated on 08-Dec-2022 at 10:44:43 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>/Users/sshao/Library/Java/JavaVirtualMachines/jdk-17.0.3-block.jdk/Contents/Home</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "pytest": "7.2.0"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>macOS-13.0.1-arm64-arm-64bit</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.2.0", "metadata": "2.0.4", "rerunfailures": "10.3", "xdist": "3.1.0"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.9</td></tr></table>
+    <h2>Summary</h2>
+    <p>92 tests ran in 81.63 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">92 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-in_store-cash_card]</td>
+          <td class="col-duration">4.56</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND in_store AND new.
+Compare sales from topline 123652.96 == total sales of States 123652.96
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-merchant_online-cash_card]</td>
+          <td class="col-duration">4.56</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND merchant_online AND new.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-online-cash_card]</td>
+          <td class="col-duration">4.60</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND online AND new.
+Compare sales from topline 57528.39 == total sales of States 57528.39
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-merchant_online-cash_app_pay]</td>
+          <td class="col-duration">2.30</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND merchant_online AND new.
+Compare sales from topline 42532.72 == total sales of States 42532.72
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-in_store-cash_app_pay]</td>
+          <td class="col-duration">2.42</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND in_store AND new.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-online-cash_app_pay]</td>
+          <td class="col-duration">2.71</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND online AND new.
+Compare sales from topline 6426.16 == total sales of States 6426.16
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-merchant_online-afterpay]</td>
+          <td class="col-duration">2.27</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND merchant_online AND new.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-in_store-afterpay]</td>
+          <td class="col-duration">2.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND in_store AND new.
+Compare sales from topline 171779.66 == total sales of States 171779.66
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-online-afterpay]</td>
+          <td class="col-duration">2.85</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND online AND new.
+Compare sales from topline 1302329.18 == total sales of States 1302329.18
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-merchant_online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.63</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND merchant_online AND new.
+Compare sales from topline 42532.72 == total sales of States 42532.72
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-in_store-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.47</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND in_store AND new.
+Compare sales from topline 123652.96 == total sales of States 123652.96
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">3.29</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND online AND new.
+Compare sales from topline 63954.55 == total sales of States 63954.55
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-merchant_online-cash_card+afterpay]</td>
+          <td class="col-duration">2.82</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND merchant_online AND new.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-in_store-cash_card+afterpay]</td>
+          <td class="col-duration">2.49</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND in_store AND new.
+Compare sales from topline 295432.62 == total sales of States 295432.62
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-online-cash_card+afterpay]</td>
+          <td class="col-duration">2.54</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND online AND new.
+Compare sales from topline 1359857.57 == total sales of States 1359857.57
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-in_store-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.56</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND in_store AND new.
+Compare sales from topline 171779.66 == total sales of States 171779.66
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-merchant_online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.85</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND merchant_online AND new.
+Compare sales from topline 42532.72 == total sales of States 42532.72
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.75</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND online AND new.
+Compare sales from topline 1308755.34 == total sales of States 1308755.34
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-in_store-all]</td>
+          <td class="col-duration">2.69</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND in_store AND new.
+Compare sales from topline 295432.62 == total sales of States 295432.62
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-merchant_online-all]</td>
+          <td class="col-duration">2.49</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND merchant_online AND new.
+Compare sales from topline 42532.72 == total sales of States 42532.72
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-online-all]</td>
+          <td class="col-duration">2.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND online AND new.
+Compare sales from topline 1366283.73 == total sales of States 1366283.73
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-all-cash_card]</td>
+          <td class="col-duration">2.14</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND all AND new.
+Compare sales from topline 181181.35 == total sales of States 181181.35
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.43</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND online AND existing.
+Compare sales from topline 12330.59 == total sales of States 12330.59
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-in_store-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.68</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND in_store AND existing.
+Compare sales from topline 319604.71 == total sales of States 319604.71
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-all-cash_app_pay]</td>
+          <td class="col-duration">2.54</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND all AND new.
+Compare sales from topline 48958.88 == total sales of States 48958.88
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-online-cash_card+afterpay]</td>
+          <td class="col-duration">2.40</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND online AND existing.
+Compare sales from topline 2602990.97 == total sales of States 2602990.97
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-in_store-all]</td>
+          <td class="col-duration">2.35</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND in_store AND existing.
+Compare sales from topline 338321.96 == total sales of States 338321.96
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-all-afterpay]</td>
+          <td class="col-duration">2.43</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND all AND new.
+Compare sales from topline 1474108.84 == total sales of States 1474108.84
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.37</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND online AND existing.
+Compare sales from topline 2592017.36 == total sales of States 2592017.36
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-merchant_online-cash_card]</td>
+          <td class="col-duration">2.57</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND merchant_online AND existing.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-online-all]</td>
+          <td class="col-duration">2.20</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND online AND existing.
+Compare sales from topline 2603669.46 == total sales of States 2603669.46
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-all-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.36</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND all AND new.
+Compare sales from topline 230140.23 == total sales of States 230140.23
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-merchant_online-cash_app_pay]</td>
+          <td class="col-duration">2.53</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND merchant_online AND existing.
+Compare sales from topline 2130.02 == total sales of States 2130.02
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-all-cash_card+afterpay]</td>
+          <td class="col-duration">2.37</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND all AND new.
+Compare sales from topline 1655290.19 == total sales of States 1655290.19
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-in_store-cash_card]</td>
+          <td class="col-duration">2.37</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND in_store AND existing.
+Compare sales from topline 18717.25 == total sales of States 18717.25
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-merchant_online-afterpay]</td>
+          <td class="col-duration">2.52</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND merchant_online AND existing.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-in_store-cash_app_pay]</td>
+          <td class="col-duration">2.21</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND in_store AND existing.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-all-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.60</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND all AND new.
+Compare sales from topline 1523067.72 == total sales of States 1523067.72
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-merchant_online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.93</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND merchant_online AND existing.
+Compare sales from topline 2130.02 == total sales of States 2130.02
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[new-all-all]</td>
+          <td class="col-duration">2.44</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND all AND new.
+Compare sales from topline 1704249.07 == total sales of States 1704249.07
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-in_store-afterpay]</td>
+          <td class="col-duration">2.88</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND in_store AND existing.
+Compare sales from topline 319604.71 == total sales of States 319604.71
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-merchant_online-cash_card+afterpay]</td>
+          <td class="col-duration">2.30</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND merchant_online AND existing.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-online-cash_card]</td>
+          <td class="col-duration">2.40</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND online AND existing.
+Compare sales from topline 11652.1 == total sales of States 11652.1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-in_store-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.59</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND in_store AND existing.
+Compare sales from topline 18717.25 == total sales of States 18717.25
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-online-cash_app_pay]</td>
+          <td class="col-duration">2.73</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND online AND existing.
+Compare sales from topline 678.49 == total sales of States 678.49
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-merchant_online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">3.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND merchant_online AND existing.
+Compare sales from topline 2130.02 == total sales of States 2130.02
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-in_store-cash_card+afterpay]</td>
+          <td class="col-duration">3.25</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND in_store AND existing.
+Compare sales from topline 338321.96 == total sales of States 338321.96
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-online-afterpay]</td>
+          <td class="col-duration">2.86</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND online AND existing.
+Compare sales from topline 2591338.87 == total sales of States 2591338.87
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-merchant_online-all]</td>
+          <td class="col-duration">2.90</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND merchant_online AND existing.
+Compare sales from topline 2130.02 == total sales of States 2130.02
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-all-cash_card+afterpay]</td>
+          <td class="col-duration">2.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND all AND existing.
+Compare sales from topline 2941312.93 == total sales of States 2941312.93
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-online-afterpay]</td>
+          <td class="col-duration">2.24</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND online AND all.
+Compare sales from topline 3893668.05 == total sales of States 3893668.05
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-all-cash_card]</td>
+          <td class="col-duration">2.27</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND all AND existing.
+Compare sales from topline 30369.35 == total sales of States 30369.35
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-all-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.84</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND all AND existing.
+Compare sales from topline 2913752.09 == total sales of States 2913752.09
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.67</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND online AND all.
+Compare sales from topline 76285.14 == total sales of States 76285.14
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-all-cash_app_pay]</td>
+          <td class="col-duration">2.64</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND all AND existing.
+Compare sales from topline 2808.51 == total sales of States 2808.51
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-all-all]</td>
+          <td class="col-duration">3.05</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND all AND existing.
+Compare sales from topline 2944121.44 == total sales of States 2944121.44
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-all-afterpay]</td>
+          <td class="col-duration">2.74</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND all AND existing.
+Compare sales from topline 2910943.58 == total sales of States 2910943.58
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-online-cash_card+afterpay]</td>
+          <td class="col-duration">2.86</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND online AND all.
+Compare sales from topline 3962848.54 == total sales of States 3962848.54
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-online-cash_card]</td>
+          <td class="col-duration">2.48</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND online AND all.
+Compare sales from topline 69180.49 == total sales of States 69180.49
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[existing-all-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.63</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND all AND existing.
+Compare sales from topline 33177.86 == total sales of States 33177.86
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.82</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND online AND all.
+Compare sales from topline 3900772.7 == total sales of States 3900772.7
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-online-cash_app_pay]</td>
+          <td class="col-duration">2.44</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND online AND all.
+Compare sales from topline 7104.65 == total sales of States 7104.65
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-online-all]</td>
+          <td class="col-duration">2.29</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND online AND all.
+Compare sales from topline 3969953.19 == total sales of States 3969953.19
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-in_store-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.05</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND in_store AND all.
+Compare sales from topline 142370.21 == total sales of States 142370.21
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-in_store-all]</td>
+          <td class="col-duration">2.39</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND in_store AND all.
+Compare sales from topline 633754.58 == total sales of States 633754.58
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-in_store-cash_card]</td>
+          <td class="col-duration">2.58</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND in_store AND all.
+Compare sales from topline 142370.21 == total sales of States 142370.21
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-in_store-cash_card+afterpay]</td>
+          <td class="col-duration">2.68</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND in_store AND all.
+Compare sales from topline 633754.58 == total sales of States 633754.58
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-merchant_online-cash_card]</td>
+          <td class="col-duration">2.54</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND merchant_online AND all.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-in_store-cash_app_pay]</td>
+          <td class="col-duration">2.47</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND in_store AND all.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-in_store-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.72</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND in_store AND all.
+Compare sales from topline 491384.37 == total sales of States 491384.37
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-merchant_online-cash_app_pay]</td>
+          <td class="col-duration">2.42</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND merchant_online AND all.
+Compare sales from topline 44662.74 == total sales of States 44662.74
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-in_store-afterpay]</td>
+          <td class="col-duration">2.30</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND in_store AND all.
+Compare sales from topline 491384.37 == total sales of States 491384.37
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-merchant_online-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.40</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND merchant_online AND all.
+Compare sales from topline 44662.74 == total sales of States 44662.74
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-merchant_online-afterpay]</td>
+          <td class="col-duration">2.54</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND merchant_online AND all.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-merchant_online-cash_card+afterpay]</td>
+          <td class="col-duration">2.48</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND merchant_online AND all.
+Compare sales from topline 0.0 == total sales of States 0
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-merchant_online-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.95</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND merchant_online AND all.
+Compare sales from topline 44662.74 == total sales of States 44662.74
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-merchant_online-all]</td>
+          <td class="col-duration">2.43</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND merchant_online AND all.
+Compare sales from topline 44662.74 == total sales of States 44662.74
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-all-cash_app_pay]</td>
+          <td class="col-duration">2.37</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay AND all AND all.
+Compare sales from topline 51767.39 == total sales of States 51767.39
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-all-cash_card]</td>
+          <td class="col-duration">2.45</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card AND all AND all.
+Compare sales from topline 211550.7 == total sales of States 211550.7
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-all-afterpay]</td>
+          <td class="col-duration">2.72</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with afterpay AND all AND all.
+Compare sales from topline 4385052.42 == total sales of States 4385052.42
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-all-cash_card+cash_app_pay]</td>
+          <td class="col-duration">2.62</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+cash_app_pay AND all AND all.
+Compare sales from topline 263318.09 == total sales of States 263318.09
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-all-cash_card+afterpay]</td>
+          <td class="col-duration">2.87</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_card+afterpay AND all AND all.
+Compare sales from topline 4596603.12 == total sales of States 4596603.12
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-all-cash_app_pay+afterpay]</td>
+          <td class="col-duration">2.64</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with cash_app_pay+afterpay AND all AND all.
+Compare sales from topline 4436819.81 == total sales of States 4436819.81
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_payment_customer_channel[all-all-all]</td>
+          <td class="col-duration">2.35</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with all AND all AND all.
+Compare sales from topline 4648370.51 == total sales of States 4648370.51
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_time_frame[7d]</td>
+          <td class="col-duration">2.24</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with 7d.
+Compare sales from topline 4648370.51 == total sales of States 4648370.51
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_time_frame[28d]</td>
+          <td class="col-duration">2.28</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with 28d.
+Compare sales from topline 17058299.64 == total sales of States 17058299.64
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_time_frame[lm]</td>
+          <td class="col-duration">2.24</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with lm.
+Compare sales from topline 16052238.59 == total sales of States 16052238.59
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_time_frame[90d]</td>
+          <td class="col-duration">2.55</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with 90d.
+Compare sales from topline 49202215.42 == total sales of States 49202215.42
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_time_frame[ly]</td>
+          <td class="col-duration">2.56</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with ly.
+Compare sales from topline 185491723.02 == total sales of States 185491723.02
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_time_frame[mtd]</td>
+          <td class="col-duration">2.24</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw1] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with mtd.
+Compare sales from topline 12868215.59 == total sales of States 12868215.59
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_time_frame[qtd]</td>
+          <td class="col-duration">2.36</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw0] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with qtd.
+Compare sales from topline 28920454.18 == total sales of States 28920454.18
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/test_cash_iq_insights/test_insights_sales_by_state.py::TestSalesByState::test_sales_by_states_via_time_frame[ytd]</td>
+          <td class="col-duration">2.32</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/>[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python[gw2] darwin -- Python 3.9.9 /Users/sshao/TestCode/cash-incentive-tooling-api-tests/venv/bin/python<br/> ------------------------------Captured stdout call------------------------------ <br/>Start testing with ytd.
+Compare sales from topline 174377396.39 == total sales of States 174377396.39
+<br/></div></td></tr></tbody></table></body></html>

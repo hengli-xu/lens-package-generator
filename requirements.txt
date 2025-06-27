@@ -1,0 +1,8 @@
+# Requirements for Python 3.9
+ptest
+requests
+PyHamcrest
+PyYaml
+kafka-python
+pytest-html
+pytest-rerunfailures
