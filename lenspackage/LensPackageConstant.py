@@ -10,6 +10,12 @@ from typing import Optional
 
 # ==================== Constants ====================
 
+US_REGION = "US"
+CA_REGION = "CA"
+
+def decideRegion():
+    return CA_REGION
+
 # CSV lens type constants
 CSV_LENS_TYPE_BLOKZ_PHOTOCHROMIC = "Blokz Photochromic"
 CSV_LENS_TYPE_EYE_Q_LENZ_PLUS = "EyeQLenz+"

@@ -2,6 +2,7 @@ import requests
 from requests import session
 
 from lenspackage.CsvPackage import CsvProductPackageList, CsvPackage
+from lenspackage.lcapi.IndexService import IndexService
 from lenspackage.lcapi.LensTypeService import LensTypeService
 from lenspackage.lcapi.PdpService import PdpService
 from lenspackage.lcapi.RxTypeService import RxTypeService
@@ -18,6 +19,7 @@ class LensPackageGeneratorService:
         self.session = session
         self.tokenValue = token_value
 
+    # 核心方法，检查atg数据是否符合要求
     def checkAtgData(self, productId, frameSku, csvPackage):
         print(f"------> lens package: productId {productId} frameSku {frameSku} packageId : {csvPackage.id} start")
 
@@ -27,6 +29,8 @@ class LensPackageGeneratorService:
         lens_type_service = LensTypeService(session=self.session, token_value=self.tokenValue)
         compatible_lens_types = lens_type_service.getUsageTypes(productId, frameSku, csvPackage)
         # 3. 获取index的详情
+        indexes = self.checkIndexWithAtg(csvPackage, frameSku, productId)
+        # 遍历每个index
         # 4. 获取tint的详情
         # 5. 获取coating的详情
         print(f"<------ lens package: productId {productId} frameSku {frameSku} packageId : {csvPackage.id} end")
@@ -39,6 +43,19 @@ class LensPackageGeneratorService:
             print(f"------> RxType check : productId {productId} frameSku {frameSku} packageId : {csvPackage.id} pass")
         else:
             print(f"------> RxType check : productId {productId} frameSku {frameSku} packageId : {csvPackage.id} fail")
+
+    def checkIndexWithAtg(self, csvPackage, frameSku, productId):
+        index_service = IndexService(session=self.session, token_value=self.tokenValue)
+        compatible_lenses = index_service.getCompatibleLenses(productId, frameSku, csvPackage)
+        compressed_indexes = index_service.checkIndexCompatibility(csvPackage, compatible_lenses)
+        
+        if compressed_indexes:
+            print(f"------> Index check : productId {productId} frameSku {frameSku} packageId : {csvPackage.id} pass")
+            print(f"Matched indexes: {compressed_indexes}")
+        else:
+            print(f"------> Index check : productId {productId} frameSku {frameSku} packageId : {csvPackage.id} fail")
+        
+        return compressed_indexes
 
     def generateJsonFile(self):
         print("read csv file start ------>")
@@ -53,7 +70,7 @@ class LensPackageGeneratorService:
         for productPackage in csvProductIdPackages:
             pdp_service = PdpService(session=self.session, token_value=self.tokenValue)
             product_skus =pdp_service.getPdp(productPackage.productId)
-            # 目前只使用一个sku进行查询，后续需要优化
+            # 目前只使用一个sku进行查询，后续需要考虑是否需要遍历每个sku，理论上一个productId下面的每个sku只是颜色不同，走lc流程的所有数据都是一样的
             picked_sku = product_skus[0]
             for packageId in productPackage.packageList:
                 self.checkAtgData(productId=productPackage.productId,frameSku = picked_sku, csvPackage = result_map[packageId])
