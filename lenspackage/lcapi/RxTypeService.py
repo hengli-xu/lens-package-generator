@@ -2,13 +2,15 @@ import requests
 import json
 from http.cookies import SimpleCookie
 import yaml
+
+from lenspackage.LensPackageConstant import decideRegion
 from settings import env_key, yaml_cfg
 
 
 class RxTypeService:
     def __init__(self, session=None, token_value=None):
         self.session = session or requests.Session()
-        config = yaml_cfg["CA"][env_key]
+        config = yaml_cfg[decideRegion()][env_key]
         self.atg_host = config['atg_host']
 
         self.headers = {
