@@ -1,3 +1,4 @@
+from pickletools import uint4
 import requests
 import json
 from http.cookies import SimpleCookie
@@ -50,11 +51,11 @@ class IndexService:
         response = self.session.post(url, headers=self.headers, json=data)
 
         if response.status_code == 200:
-            print("Compatible lenses retrieved successfully: url ", response.text)
+            print("Compatible lenses retrieved successfully: url ", url)
             return response.json()
         else:
             print(f"Failed to retrieve compatible lenses, status code: {response.status_code}")
-            return None 
+            return None
 
     def checkIndexCompatibility(self, csvPackage, compatible_lenses_response):
         """
@@ -62,10 +63,10 @@ class IndexService:
         """
         if not compatible_lenses_response:
             return []
-            
+
         compatible_lenses = compatible_lenses_response.get('compatibleLenses', [])
         csv_indexes = csvPackage.index  # 这是字符串列表，如 ["1.50", "1.61", "1.67"]
-        
+
         # 将csv_indexes转换为浮点数列表
         csv_index_float = []
         for index_str in csv_indexes:
@@ -74,14 +75,14 @@ class IndexService:
             except ValueError:
                 print(f"Warning: Invalid index value '{index_str}' in csvPackage.index")
                 continue
-        
+
         # 过滤匹配的镜片
         matched_lenses = []
         for lens in compatible_lenses:
             lens_index = lens.get('lensIndex')
             if lens_index in csv_index_float:
                 matched_lenses.append(lens)
-        
+
         # 压缩数据格式
         compressed_indexes = []
         for lens in matched_lenses:
@@ -96,5 +97,5 @@ class IndexService:
                 "sku": lens.get('sku', '')
             }
             compressed_indexes.append(compressed_index)
-        
-        return compressed_indexes 
+
+        return compressed_indexes
