@@ -1,21 +1,11 @@
-from dataclasses import dataclass
-from pickletools import uint4
-from typing import List
-
 import requests
-import json
-from http.cookies import SimpleCookie
-import yaml
 
 from lenspackage.LensPackageConstant import getDefaultRx, csv_lens_type_map, decideRegion
 from settings import env_key, yaml_cfg
 from lenspackage.lcapi.data_models import (
-    CompatibleLensesResponse, 
-    create_compatible_lenses_response_from_dict, 
-    group_lenses_by_index, 
+    create_compatible_lenses_response_from_dict,
     filter_lenses_by_index,
-    create_compressed_lens_indexes,
-    CompressedLensIndex
+    create_compressed_lens_indexes
 )
 
 class IndexService:
@@ -124,14 +114,16 @@ class IndexService:
             index_sku = index_item.sku
             tint_result = tint_service.getCompatibleTints(productId, frameSku, csvPackage, index_sku)
             if tint_result:
-                tints = tint_result.get('compatibleTints', [])
+                # 现在tint_result是CompatibleTintsResponse对象
+                tints = tint_result.compatibleTints
                 all_tints.extend(tints)
 
         # 去重，保留唯一的tint
         unique_tints = []
         seen_skus = set()
         for tint in all_tints:
-            tint_sku = tint.get('sku')
+            # 现在tint是TintItem对象
+            tint_sku = tint.sku
             if tint_sku and tint_sku not in seen_skus:
                 unique_tints.append(tint)
                 seen_skus.add(tint_sku)

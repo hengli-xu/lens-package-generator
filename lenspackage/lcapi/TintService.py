@@ -1,8 +1,8 @@
 import requests
-import yaml
 
 from lenspackage.LensPackageConstant import getDefaultRx, csv_lens_type_map, decideRegion
 from settings import env_key, yaml_cfg
+from lenspackage.lcapi.data_models import create_compatible_tints_response_from_dict
 
 
 class TintService:
@@ -46,7 +46,9 @@ class TintService:
 
         if response.status_code == 200:
             print("Compatible tints retrieved successfully")
-            return response.json()
+            response_data = response.json()
+            # 转换为data class
+            return create_compatible_tints_response_from_dict(response_data)
         else:
             print(f"Failed to retrieve compatible tints, status code: {response.status_code}")
             return None

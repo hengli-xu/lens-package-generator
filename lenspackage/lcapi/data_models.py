@@ -1,5 +1,5 @@
 """
-LC API 数据模型定义
+数据模型定义
 """
 
 from dataclasses import dataclass
@@ -43,6 +43,49 @@ def create_compatible_lenses_response_from_dict(data: dict) -> CompatibleLensesR
     """从字典创建CompatibleLensesResponse实例"""
     lenses = [CompatibleLens(**lens) for lens in data.get('compatibleLenses', [])]
     return CompatibleLensesResponse(compatibleLenses=lenses)
+
+
+# ==================== TintService API 数据类 ====================
+
+@dataclass
+class TintItem:
+    """Tint项目数据类 - 合并了CompatibleTint和TintItem"""
+    # 基础字段
+    tintBase: str
+    displayName: str
+    cssValue: str
+    classification: str
+    subType: str
+    sku: str
+    price: float
+    productId: str
+    isStandardDelivery: bool
+    isRushDelivery: bool
+    
+    # 可选字段 - 来自CompatibleTint
+    salePrice: Optional[float] = None
+    inlineStyle: Optional[str] = None
+    
+    # 可选字段 - 来自TintItem
+    additionalChargeInfo: Optional[dict] = None
+    isSelect: Optional[bool] = None
+    lensSku: Optional[str] = None
+
+
+@dataclass
+class CompatibleTintsResponse:
+    """兼容Tint响应数据类"""
+    compatibleTints: List[TintItem]
+    additionalChargeInfo: dict
+
+
+def create_compatible_tints_response_from_dict(data: dict) -> CompatibleTintsResponse:
+    """从字典创建CompatibleTintsResponse实例"""
+    tints = [TintItem(**tint) for tint in data.get('compatibleTints', [])]
+    return CompatibleTintsResponse(
+        compatibleTints=tints,
+        additionalChargeInfo=data.get('additionalChargeInfo', {})
+    )
 
 
 # ==================== CoatingService API 数据类 ====================
@@ -103,6 +146,9 @@ class CompressedLensIndex:
     cost: List[CostInfo]
     lensIndex: float
     sku: str
+
+
+
 
 
 # ==================== 工具函数 ====================
