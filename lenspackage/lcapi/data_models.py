@@ -148,7 +148,35 @@ class CompressedLensIndex:
     sku: str
 
 
+# ==================== Tint Configuration 数据类 ====================
 
+@dataclass
+class TintTypeItem:
+    """Tint类型项目数据类 - 对应Kotlin的TintTypeItem"""
+    name: str
+    type: str
+    label: str
+    order: float
+
+
+@dataclass
+class CompatibleTintsConfigurationResponse:
+    """兼容Tint配置响应数据类 - 对应Kotlin的CompatibleTintsConfigurationResponse"""
+    tints: List[TintTypeItem]
+
+
+def create_compatible_tints_configuration_response_from_dict(data: dict) -> CompatibleTintsConfigurationResponse:
+    """从字典创建CompatibleTintsConfigurationResponse实例"""
+    tints = [TintTypeItem(**tint) for tint in data.get('tints', [])]
+    # 按照order字段排序
+    tints.sort(key=lambda x: x.order)
+    return CompatibleTintsConfigurationResponse(tints=tints)
+
+
+def create_compatible_tints_configuration_response_from_lc_config() -> CompatibleTintsConfigurationResponse:
+    """从lc_tints_config创建CompatibleTintsConfigurationResponse实例"""
+    from lenspackage.lcapi.tints_config import lc_tints_config
+    return create_compatible_tints_configuration_response_from_dict(lc_tints_config)
 
 
 # ==================== 工具函数 ====================
@@ -193,4 +221,76 @@ def create_compressed_lens_indexes(lenses: List[CompatibleLens], region: str) ->
             sku=lens.sku
         )
         compressed_indexes.append(compressed_index)
-    return compressed_indexes 
+    return compressed_indexes
+
+
+# ==================== Compatible Tints DTO 数据类 ====================
+
+@dataclass
+class CompatibleTintsType:
+    """兼容Tint类型数据类 - 对应Kotlin的CompatibleTintsType"""
+    label: str
+    price: float
+    compatibleTintItemDtoList: Optional[List[TintItem]] = None
+    index: int = 0
+    isOpen: bool = True
+    isItemSelect: bool = False
+    selectedTintBall: Optional[TintItem] = None
+    
+    def __post_init__(self):
+        if self.compatibleTintItemDtoList is None:
+            self.compatibleTintItemDtoList = []
+
+
+@dataclass
+class CompatibleTintsDto:
+    """兼容Tint DTO数据类 - 对应Kotlin的CompatibleTintsDto"""
+    typeList: List[CompatibleTintsType]
+    additionalChargeInfo: Optional[dict] = None
+    indexTintsRequest: bool = False
+
+
+def group_tints_by_classification(unique_tints: List[TintItem], lc_tints_config: CompatibleTintsConfigurationResponse) -> CompatibleTintsDto:
+    """
+    将unique_tints按照classification与lc_tints_config中的name进行分类聚合
+    
+    Args:
+        unique_tints: TintItem列表
+        lc_tints_config: lc_tints_config配置
+        
+    Returns:
+        CompatibleTintsDto: 分类聚合后的数据
+    """
+    # 创建分类映射
+    type_groups = {}
+    
+    # 初始化所有配置的类型
+    for i, config_item in enumerate(lc_tints_config.tints):
+        type_groups[config_item.name] = CompatibleTintsType(
+            label=config_item.label,
+            price=0.0,  # 初始价格为0
+            index=i,
+            isOpen=True,
+            isItemSelect=False
+        )
+    
+    # 将tint项目分类
+    for tint_item in unique_tints:
+        if tint_item.classification in type_groups:
+            type_group = type_groups[tint_item.classification]
+            type_group.compatibleTintItemDtoList.append(tint_item)
+            # 更新价格（取最高价格）
+            if tint_item.price > type_group.price:
+                type_group.price = tint_item.price
+    
+    # 过滤掉没有tint项目的类型，并按order排序
+    filtered_type_list = []
+    for config_item in lc_tints_config.tints:
+        if config_item.name in type_groups and len(type_groups[config_item.name].compatibleTintItemDtoList) > 0:
+            filtered_type_list.append(type_groups[config_item.name])
+    
+    return CompatibleTintsDto(
+        typeList=filtered_type_list,
+        additionalChargeInfo={},
+        indexTintsRequest=False
+    ) 

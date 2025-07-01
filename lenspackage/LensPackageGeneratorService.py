@@ -3,6 +3,9 @@ from lenspackage.lcapi.IndexService import IndexService
 from lenspackage.lcapi.LensTypeService import LensTypeService
 from lenspackage.lcapi.PdpService import PdpService
 from lenspackage.lcapi.RxTypeService import RxTypeService
+from lenspackage.lcapi.data_models import create_compatible_tints_configuration_response_from_lc_config, \
+    group_tints_by_classification
+from lenspackage.lcapi.tints_config import lc_tints_config
 
 from lenspackage.parsecsv.CsvParser import parseCsvAndGenProductPackagesList, parseCsvAndGenPackageDetails
 
@@ -68,10 +71,8 @@ class LensPackageGeneratorService:
         
         for lens_index, lens_items in index_groups.items():
             print(f"------> Processing tints for lensIndex: {lens_index}")
-            
-            # 收集该lensIndex的所有tints
-            all_tints = []
-            
+
+            lens_tints = []
             for lens_item in lens_items:
                 # 如果tintClassification不为空，直接生成tint对象
                 if lens_item.tintClassification:
@@ -91,33 +92,77 @@ class LensPackageGeneratorService:
                         isSelect=False,
                         lensSku=lens_item.sku
                     )
-                    all_tints.append(tint_item)
-                    print(f"  Generated tint for SKU {lens_item.sku}: {tint_item.tintBase} ({tint_item.classification})")
+                    lens_tints.append(tint_item)
+                    print(f"  Generated tint for SKU {lens_item.sku}: {tint_item.tintBase} ({tint_item.classification}) lens_tints size :{len(lens_tints)}")
                 else:
                     # 如果tintClassification为空，调用TintService
                     tint_result = tint_service.getCompatibleTints(productId, frameSku, csvPackage, lens_item.sku)
                     if tint_result:
                         # 将API返回的tints添加到列表中
                         api_tints = tint_result.compatibleTints
-                        all_tints.extend(api_tints)
+                        lens_tints.extend(api_tints)
                         print(f"  Called TintService for SKU {lens_item.sku}, got {len(api_tints)} tints")
                     else:
                         print(f"  No tint result for SKU {lens_item.sku}")
-            
-            # 去重，保留唯一的tint（基于sku）
-            unique_tints = []
-            seen_skus = set()
-            for tint in all_tints:
-                if tint.sku and tint.sku not in seen_skus:
-                    unique_tints.append(tint)
-                    seen_skus.add(tint.sku)
-                elif not tint.sku:  # 对于没有sku的tint（如手动创建的），基于tintBase去重
-                    if tint.tintBase not in seen_skus:
-                        unique_tints.append(tint)
-                        seen_skus.add(tint.tintBase)
-            
-            print(f"  Total unique tints for lensIndex {lens_index}: {len(unique_tints)}")
-            # TODO：每组内去[1.5/1.61/1.67]去校验每个tint的baseTint是一样的是一样的
+
+            lc_tints_config = create_compatible_tints_configuration_response_from_lc_config()
+            result = group_tints_by_classification(lens_tints, lc_tints_config)
+            print(f"  group_tints_by_classification typeList size:  {len(result.typeList)}")
+
+
+            # TODO: 校验unique_tints的一致性
+
+            # 对每个lens_item调用CoatingService并校验coating
+            from lenspackage.lcapi.CoatingService import CoatingService
+            coating_service = CoatingService(session=self.session, token_value=self.tokenValue)
+
+            # 存储每个lens_item的最高价格coating
+            max_price_coatings = {}
+
+            for lens_item in lens_items:
+                coating_result = coating_service.getCompatibleCoatings(productId, frameSku, csvPackage, lens_item.sku)
+                if coating_result:
+                    print(f"    Got coatings for lensSku {lens_item.sku} coating size: {len(coating_result.compatibleCoatings)}")
+
+                    # 找出价格最高的coatingItem
+                    max_price_coating = None
+                    max_price = -1
+
+                    for coating_type in coating_result.compatibleCoatings:
+                        for coating_item in coating_type.items:
+                            if coating_item.price > max_price:
+                                max_price = coating_item.price
+                                max_price_coating = coating_item
+
+                    if max_price_coating:
+                        max_price_coatings[lens_item.sku] = max_price_coating
+                        print(f"      Max price coating for {lens_item.sku}: {max_price_coating.sku} (${max_price_coating.price})")
+                else:
+                    print(f"    No coatings for lensSku {lens_item.sku}")
+
+            # 校验同组内所有lensItem的最高价格coating的sku是否一致
+            if len(max_price_coatings) > 1:
+                first_sku = None
+                all_same_sku = True
+
+                for lens_sku, coating in max_price_coatings.items():
+                    if first_sku is None:
+                        first_sku = coating.sku
+                    elif coating.sku != first_sku:
+                        all_same_sku = False
+                        break
+
+                if all_same_sku:
+                    print(f"    ✓ Coating validation PASSED: All lensItems have same max price coating SKU: {first_sku}")
+                else:
+                    print(f"    ✗ Coating validation FAILED: Different max price coating SKUs found:")
+                    for lens_sku, coating in max_price_coatings.items():
+                        print(f"      Lens {lens_sku}: {coating.sku} (${coating.price})")
+            elif len(max_price_coatings) == 1:
+                lens_sku, coating = list(max_price_coatings.items())[0]
+                print(f"    ✓ Coating validation PASSED: Single lensItem with max price coating SKU: {coating.sku}")
+            else:
+                print(f"    ⚠ No coatings found for any lensItem in this group")
 
     def generateJsonFile(self):
         print("read csv file start ------>")
