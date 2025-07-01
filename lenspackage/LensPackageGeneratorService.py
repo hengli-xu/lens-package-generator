@@ -1,5 +1,7 @@
 import requests
 from requests import session
+from dataclasses import dataclass
+from typing import List
 
 from lenspackage.CsvPackage import CsvProductPackageList, CsvPackage
 from lenspackage.lcapi.CoatingService import CoatingService
@@ -8,10 +10,9 @@ from lenspackage.lcapi.LensTypeService import LensTypeService
 from lenspackage.lcapi.PdpService import PdpService
 from lenspackage.lcapi.RxTypeService import RxTypeService
 from lenspackage.LensPackageConstant import csv_lens_type_map
-from lenspackage.lcapi.TintService import TintService
+
 from lenspackage.parsecsv.CsvParser import parseCsvAndGenProductPackagesList, parseCsvAndGenPackageDetails
 from settings import env_key, yaml_cfg
-
 
 class LensPackageGeneratorService:
     package_detail_csv_file = "./csv/PackagesDetail.csv"
@@ -31,18 +32,9 @@ class LensPackageGeneratorService:
         lens_type_service = LensTypeService(session=self.session, token_value=self.tokenValue)
         compatible_lens_types = lens_type_service.getUsageTypes(productId, frameSku, csvPackage)
         # 3. 获取index的详情
-        indexes = self.checkIndexWithAtg(csvPackage, frameSku, productId)
-        # 遍历每个index
-        for index in indexes:
-            # 4. 获取tint的详情
-            # 最难写，最后处理
-            tint_service = TintService(session=self.session, token_value=self.tokenValue)
-            tint_service.getCompatibleTints(productId, frameSku, csvPackage, index.get('sku'))
+        compatible_lenses, indexes = self.checkIndexWithAtg(csvPackage, frameSku, productId)
 
-            # 5. 获取coating的详情
-            coating_service = CoatingService(session=self.session, token_value=self.tokenValue)
-            # TODO: tintSku也要传
-            coating_service.getCompatibleCoatings(productId, frameSku, csvPackage, index.get('sku'))
+        print(f"<------ lens package: productId {productId} frameSku {frameSku} packageId : {csvPackage.id} end")
 
     def checkRxTypeWithAtg(self, csvPackage, frameSku, productId):
         rx_type_service = RxTypeService(session=self.session, token_value=self.tokenValue)
@@ -55,15 +47,15 @@ class LensPackageGeneratorService:
 
     def checkIndexWithAtg(self, csvPackage, frameSku, productId):
         index_service = IndexService(session=self.session, token_value=self.tokenValue)
-        compatible_lenses = index_service.getCompatibleLenses(productId, frameSku, csvPackage)
-        compressed_indexes = index_service.checkIndexCompatibility(csvPackage, compatible_lenses)
+        compatible_lenses_response = index_service.getCompatibleLenses(productId, frameSku, csvPackage)
+        compatible_lenses, compressed_indexes = index_service.checkIndexCompatibility(csvPackage, compatible_lenses_response)
         
         if compressed_indexes:
-            print(f"------> Index check : productId {productId} frameSku {frameSku} packageId : {csvPackage.id} pass")
+            print(f"------> Index check : productId {productId} frameSku {frameSku} packageId : {csvPackage.id} pass compatible_lenses size {len(compatible_lenses)} compressed_indexes size {len(compressed_indexes)}")
         else:
             print(f"------> Index check : productId {productId} frameSku {frameSku} packageId : {csvPackage.id} fail")
         
-        return compressed_indexes
+        return compatible_lenses, compressed_indexes
 
     def generateJsonFile(self):
         print("read csv file start ------>")
