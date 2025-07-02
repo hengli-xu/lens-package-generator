@@ -1,6 +1,7 @@
 from typing import List
 
 from lenspackage.CsvPackage import CsvProductPackageList, CsvPackage
+from lenspackage.LensPackageConstant import csv_lens_type_map
 from lenspackage.lcapi.IndexService import IndexService
 from lenspackage.lcapi.LensTypeService import LensTypeService
 from lenspackage.lcapi.PdpService import PdpService
@@ -33,12 +34,14 @@ class LensPackageGeneratorService:
         # 3. 获取index的详情
         # indexes是用作lens package需要的字段
         # compatible_lenses是从atg取得的所有index的详细信息
-        compatible_lenses, indexes = self.checkIndexWithAtg(csvPackage, frameSku, productId)
+        atg_compatible_lenses, indexes = self.checkIndexWithAtg(csvPackage, frameSku, productId)
 
         # 4. 按lensIndex分组处理tint
-        self.processTintsAndCoatingByLensIndex(productId, frameSku, csvPackage, compatible_lenses)
+        lens_package = self.processTintsAndCoatingByLensIndex(productId, frameSku, csvPackage, atg_compatible_lenses,indexes)
 
         print(f"<------ lens package: productId {productId} frameSku {frameSku} packageId : {csvPackage.id} end")
+        
+        return lens_package
 
     def checkRxTypeWithAtg(self, csvPackage, frameSku, productId):
         rx_type_service = RxTypeService(session=self.session, token_value=self.tokenValue)
@@ -61,7 +64,7 @@ class LensPackageGeneratorService:
         
         return compatible_lenses, compressed_indexes
 
-    def processTintsAndCoatingByLensIndex(self, productId, frameSku, csvPackage, compatible_lenses):
+    def processTintsAndCoatingByLensIndex(self, productId, frameSku, csvPackage, atg_compatible_lenses, packageIndexes):
         """
         按lensIndex分组处理tint
         """
@@ -70,7 +73,7 @@ class LensPackageGeneratorService:
         
         # 按lensIndex分组
         index_service = IndexService(session=self.session, token_value=self.tokenValue)
-        index_groups = index_service.groupIndexesByLensIndex(compatible_lenses)
+        index_groups = index_service.groupIndexesByLensIndex(atg_compatible_lenses)
         
         tint_service = TintService(session=self.session, token_value=self.tokenValue)
         # 比如1.5对应的所有tint，1.61对应的所有tint的map
@@ -173,6 +176,72 @@ class LensPackageGeneratorService:
         lens_package_tints = group_tints_by_classification(processed_first_tints, lc_tints_config)
         print(f"Original lens_tints_map size: {len(lens_tints_map)}")
 
+        # 组装LensPackage数据
+        lens_package = self.assembleLensPackage(csvPackage, lens_coating_map, lens_package_tints, packageIndexes)
+        print(f"Assembled LensPackage: {lens_package.id} - {lens_package.title}")
+        
+        return lens_package
+
+    def assembleLensPackage(self, csvPackage, lens_coating_map, lens_package_tints, package_indexes):
+        """
+        组装LensPackage数据
+        
+        Args:
+            csvPackage: CsvPackage对象，包含基础信息
+            lens_coating_map: 镜片涂层映射
+            lens_package_tints: 处理后的tint数据
+            index_groups: 按lensIndex分组的镜片数据
+            
+        Returns:
+            LensPackage: 组装好的镜片包数据
+        """
+        from lenspackage.datamodels.package_data_models import (
+            LensPackage, CoatingType, Index, LensType, 
+            RxType, TintType, TintItem, CostType
+        )
+        from lenspackage.LensPackageConstant import decideRegion
+        
+        # 1. 从CsvPackage获取基础信息
+        # 解析LensType (e.g. "BlokzGeneralUse:Blokz")
+        lens_type = LensType(
+            displayName=f"{csv_lens_type_map[csvPackage.LensType].type} {csv_lens_type_map[csvPackage.LensType].sub_type}",
+            subType=csv_lens_type_map[csvPackage.LensType].sub_type,
+            type=csv_lens_type_map[csvPackage.LensType].type
+        )
+
+        # 3. 构建coatingType
+        representative_coating = None
+        if lens_coating_map:
+            representative_coating = list(lens_coating_map.values())[0]
+        
+        coating_type = CoatingType(
+            cost=[CostType(region=decideRegion(), price=representative_coating.price)] if representative_coating else [],
+            displayName=representative_coating.coatingResistantType if representative_coating else "",
+            sku=representative_coating.sku if representative_coating else ""
+        )
+
+        # 6. 构建RxType
+        rx_type = RxType(
+            prescriptionType=csvPackage.rxType.prescription_type,
+            progressiveUsage=csvPackage.rxType.progressive_usage or None
+        )
+        
+        # 7. 组装LensPackage
+        lens_package = LensPackage(
+            backgroundUrl=csvPackage.backgroundUrl,
+            coatingType=coating_type,
+            description=csvPackage.packageDescription,
+            id=csvPackage.id,
+            indexes=package_indexes,
+            lensType=lens_type,
+            rxType=rx_type,
+            shortDescription=csvPackage.packageshortdesc,
+            tintType=lens_package_tints,
+            title=csvPackage.packageTitle,
+            platform=csvPackage.platform
+        )
+        
+        return lens_package
 
     def generateJsonFile(self):
         print("read csv file start ------>")

@@ -1,5 +1,5 @@
 """
-数据模型定义
+数据模型定义 - API相关
 """
 
 from dataclasses import dataclass
@@ -80,9 +80,6 @@ class CompatibleTintsResponse:
     additionalChargeInfo: dict
 
 
-
-
-
 # ==================== CoatingService API 数据类 ====================
 
 @dataclass
@@ -113,9 +110,6 @@ class CoatingType:
 class CompatibleCoatingsResponse:
     """兼容涂层响应数据类"""
     compatibleCoatings: List[CoatingType]
-
-
-
 
 
 # ==================== 整合数据类 ====================
@@ -150,6 +144,7 @@ class TintTypeItem:
 class CompatibleTintsConfigurationResponse:
     """兼容Tint配置响应数据类 - 对应Kotlin的CompatibleTintsConfigurationResponse"""
     tints: List[TintTypeItem]
+
 
 # ==================== Cost Type 数据类 ====================
 
