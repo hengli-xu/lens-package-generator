@@ -1,3 +1,5 @@
+from typing import List
+
 from lenspackage.CsvPackage import CsvProductPackageList, CsvPackage
 from lenspackage.lcapi.IndexService import IndexService
 from lenspackage.lcapi.LensTypeService import LensTypeService
@@ -5,6 +7,7 @@ from lenspackage.lcapi.PdpService import PdpService
 from lenspackage.lcapi.RxTypeService import RxTypeService
 from lenspackage.lcapi.TintHelper import create_compatible_tints_configuration_response_from_lc_config, \
     group_tints_by_classification
+from lenspackage.lcapi.data_models import CoatingItem
 
 from lenspackage.parsecsv.CsvParser import parseCsvAndGenProductPackagesList, parseCsvAndGenPackageDetails
 
@@ -27,10 +30,12 @@ class LensPackageGeneratorService:
         lens_type_service = LensTypeService(session=self.session, token_value=self.tokenValue)
         compatible_lens_types = lens_type_service.getUsageTypes(productId, frameSku, csvPackage)
         # 3. 获取index的详情
+        # indexes是用作lens package需要的字段
+        # compatible_lenses是从atg取得的所有index的详细信息
         compatible_lenses, indexes = self.checkIndexWithAtg(csvPackage, frameSku, productId)
 
         # 4. 按lensIndex分组处理tint
-        self.processTintsByLensIndex(productId, frameSku, csvPackage, compatible_lenses)
+        self.processTintsAndCoatingByLensIndex(productId, frameSku, csvPackage, compatible_lenses)
 
         print(f"<------ lens package: productId {productId} frameSku {frameSku} packageId : {csvPackage.id} end")
 
@@ -55,7 +60,7 @@ class LensPackageGeneratorService:
         
         return compatible_lenses, compressed_indexes
 
-    def processTintsByLensIndex(self, productId, frameSku, csvPackage, compatible_lenses):
+    def processTintsAndCoatingByLensIndex(self, productId, frameSku, csvPackage, compatible_lenses):
         """
         按lensIndex分组处理tint
         """
@@ -67,13 +72,15 @@ class LensPackageGeneratorService:
         index_groups = index_service.groupIndexesByLensIndex(compatible_lenses)
         
         tint_service = TintService(session=self.session, token_value=self.tokenValue)
-        
+        # 比如1.5对应的所有tint，1.61对应的所有tint的map
+        lens_tints_map: dict[str, List[TintItem]] = {}
+        # 比如1.5对应的所有coating，1.61对应的所有coating的map
+        lens_coating_map: dict[str, CoatingItem] = {}
         for lens_index, lens_items in index_groups.items():
             print(f"------> Processing tints for lensIndex: {lens_index}")
 
             lens_tints = []
             for lens_item in lens_items:
-                # 如果tintClassification不为空，直接生成tint对象
                 if lens_item.tintClassification:
                     tint_item = TintItem(
                         tintBase=lens_item.tintBase,
@@ -92,25 +99,23 @@ class LensPackageGeneratorService:
                         lensSku=lens_item.sku
                     )
                     lens_tints.append(tint_item)
-                    print(f"  Generated tint for SKU {lens_item.sku}: {tint_item.tintBase} ({tint_item.classification}) lens_tints size :{len(lens_tints)}")
+                    print(
+                        f"  Generated tint for SKU {lens_item.sku}: {tint_item.tintBase} ({tint_item.classification}) lens_tints size :{len(lens_tints)}")
+                # 不管tintClassification是否为空，都要调用TintService
+                tint_result = tint_service.getCompatibleTints(productId, frameSku, csvPackage, lens_item.sku)
+                if tint_result:
+                    # 将API返回的tints添加到列表中
+                    api_tints = tint_result.compatibleTints
+                    lens_tints.extend(api_tints)
+                    print(f"  Called TintService for SKU {lens_item.sku}, got {len(api_tints)} tints")
                 else:
-                    # 如果tintClassification为空，调用TintService
-                    tint_result = tint_service.getCompatibleTints(productId, frameSku, csvPackage, lens_item.sku)
-                    if tint_result:
-                        # 将API返回的tints添加到列表中
-                        api_tints = tint_result.compatibleTints
-                        lens_tints.extend(api_tints)
-                        print(f"  Called TintService for SKU {lens_item.sku}, got {len(api_tints)} tints")
-                    else:
-                        print(f"  No tint result for SKU {lens_item.sku}")
+                    print(f"  No tint result for SKU {lens_item.sku}")
 
             lc_tints_config = create_compatible_tints_configuration_response_from_lc_config()
             result = group_tints_by_classification(lens_tints, lc_tints_config)
+
             print(f"  group_tints_by_classification typeList size:  {len(result.typeList)}")
-
-
-            # TODO: 校验unique_tints的一致性
-
+            lens_tints_map[lens_index] = lens_tints
             # 对每个lens_item调用CoatingService并校验coating
             from lenspackage.lcapi.CoatingService import CoatingService
             coating_service = CoatingService(session=self.session, token_value=self.tokenValue)
@@ -162,6 +167,11 @@ class LensPackageGeneratorService:
                 print(f"    ✓ Coating validation PASSED: Single lensItem with max price coating SKU: {coating.sku}")
             else:
                 print(f"    ⚠ No coatings found for any lensItem in this group")
+
+            lens_coating_map[lens_index] = coating
+
+        print(f"遍历完成，lens_coating_map size = {len(lens_tints_map)} lens_tints_map size = {len(lens_tints_map)}")
+
 
     def generateJsonFile(self):
         print("read csv file start ------>")
