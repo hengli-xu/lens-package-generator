@@ -6,7 +6,7 @@ from lenspackage.lcapi.LensTypeService import LensTypeService
 from lenspackage.lcapi.PdpService import PdpService
 from lenspackage.lcapi.RxTypeService import RxTypeService
 from lenspackage.lcapi.TintHelper import create_compatible_tints_configuration_response_from_lc_config, \
-    group_tints_by_classification, validateTintConsistency
+    group_tints_by_classification, validateTintConsistency, populateLensPackageIndexTintList
 from lenspackage.lcapi.CoatingHelper import validateCoatingSkus
 from lenspackage.lcapi.data_models import CoatingItem
 
@@ -163,6 +163,16 @@ class LensPackageGeneratorService:
         # 在所有lensIndex处理完毕后，校验lens_tints_map
         print(f"\n------> Validating tint consistency across all lensIndexes")
         validateTintConsistency(lens_tints_map)
+
+        # 校验完成后，为TintItem填充lensPackageIndexTintList字段
+        print(f"\n------> Populating lensPackageIndexTintList for TintItems")
+        processed_first_tints = populateLensPackageIndexTintList(lens_tints_map)
+        print(f"\n------> Populating lensPackageIndexTintList for TintItems end")
+        
+        # 使用处理后的数据，原始lens_tints_map保持不变
+        lens_package_tints = group_tints_by_classification(processed_first_tints, lc_tints_config)
+        print(f"Original lens_tints_map size: {len(lens_tints_map)}")
+
 
     def generateJsonFile(self):
         print("read csv file start ------>")

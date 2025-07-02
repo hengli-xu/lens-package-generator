@@ -64,6 +64,13 @@ class TintItem:
     additionalChargeInfo: Optional[dict] = None
     isSelect: Optional[bool] = None
     lensSku: Optional[str] = None
+    
+    # 新增字段 - lensPackageIndexTintList
+    lensPackageIndexTintList: Optional[List['IndexSkuTintSku']] = None
+    
+    def __post_init__(self):
+        if self.lensPackageIndexTintList is None:
+            self.lensPackageIndexTintList = []
 
 
 @dataclass
@@ -143,6 +150,27 @@ class TintTypeItem:
 class CompatibleTintsConfigurationResponse:
     """兼容Tint配置响应数据类 - 对应Kotlin的CompatibleTintsConfigurationResponse"""
     tints: List[TintTypeItem]
+
+# ==================== Cost Type 数据类 ====================
+
+@dataclass
+class CostType:
+    """价格类型数据类 - 对应Kotlin的CostType"""
+    region: Optional[str] = None
+    price: Optional[float] = None
+
+
+@dataclass
+class IndexSkuTintSku:
+    """索引SKU和Tint SKU数据类 - 对应Kotlin的IndexSkuTintSku"""
+    indexSku: Optional[str] = None
+    tintSku: Optional[str] = None
+    price: Optional[List[CostType]] = None
+    
+    def __post_init__(self):
+        if self.price is None:
+            self.price = []
+
 
 # ==================== Compatible Tints DTO 数据类 ====================
 

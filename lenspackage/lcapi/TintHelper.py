@@ -1,3 +1,5 @@
+from lenspackage.LensPackageConstant import decideRegion
+
 lc_tints_config = {
     "tints": [
         {
@@ -186,3 +188,99 @@ def validateTintConsistency(lens_tints_map):
         print("    ✗ Tint consistency validation FAILED: Inconsistent tints found across lensIndexes")
     
     return validation_passed
+
+
+def populateLensPackageIndexTintList(lens_tints_map):
+    """
+    为lens_tints_map中第一个基准的TintItem填充lensPackageIndexTintList字段
+    
+    Args:
+        lens_tints_map: 包含每个lensIndex对应tint列表的字典
+        
+    Returns:
+        list: 包含填充了lensPackageIndexTintList的第一个基准TintItem列表
+    """
+    from lenspackage.lcapi.data_models import IndexSkuTintSku, CostType, TintItem
+    import copy
+    
+    if not lens_tints_map or len(lens_tints_map) <= 1:
+        print("    ⚠ No need to populate lensPackageIndexTintList: lens_tints_map size <= 1")
+        return list(lens_tints_map.values())[0] if lens_tints_map else []
+    
+    # 获取第一个key作为基准
+    first_key = list(lens_tints_map.keys())[0]
+    first_tints = lens_tints_map[first_key]
+    
+    # 创建第一个基准tint列表的深拷贝，避免修改原始数据
+    processed_first_tints = []
+    for tint in first_tints:
+        # 创建TintItem的深拷贝
+        new_tint = TintItem(
+            tintBase=tint.tintBase,
+            displayName=tint.displayName,
+            cssValue=tint.cssValue,
+            classification=tint.classification,
+            subType=tint.subType,
+            sku=tint.sku,
+            price=tint.price,
+            productId=tint.productId,
+            isStandardDelivery=tint.isStandardDelivery,
+            isRushDelivery=tint.isRushDelivery,
+            salePrice=tint.salePrice,
+            inlineStyle=tint.inlineStyle,
+            additionalChargeInfo=tint.additionalChargeInfo,
+            isSelect=tint.isSelect,
+            lensSku=tint.lensSku,
+            lensPackageIndexTintList=[]  # 初始化为空列表
+        )
+        processed_first_tints.append(new_tint)
+    
+    print(f"    Populating lensPackageIndexTintList using {first_key} as reference")
+    
+    # 遍历基准tint列表中的每个TintItem
+    for i, reference_tint in enumerate(processed_first_tints):
+        print(f"    Processing tint {i+1}: {reference_tint.tintBase} (sku: {reference_tint.sku or 'empty'})")
+        
+        if reference_tint.sku:  # sku不为空，直接填充当前tint的信息
+            # 创建CostType
+            cost_type = CostType(
+                region=decideRegion(),  # 默认区域，可以根据需要调整
+                price=reference_tint.price
+            )
+            
+            # 创建IndexSkuTintSku
+            index_sku_tint_sku = IndexSkuTintSku(
+                indexSku=reference_tint.lensSku,
+                tintSku=reference_tint.sku,
+                price=[cost_type]
+            )
+            
+            reference_tint.lensPackageIndexTintList.append(index_sku_tint_sku)
+            print(f"      ✓ Added direct tint info: indexSku={reference_tint.lensSku}, tintSku={reference_tint.sku}")
+            
+        else:  # sku为空，需要在所有lensIndex中查找相同tintBase的tint
+            for lens_index, tints in lens_tints_map.items():
+                # 在当前lensIndex的tint列表中查找相同tintBase的tint
+                for tint in tints:
+                    if tint.tintBase == reference_tint.tintBase:
+                        # 创建CostType
+                        cost_type = CostType(
+                            region=decideRegion(),  # 默认区域，可以根据需要调整
+                            price=tint.price
+                        )
+                        
+                        # 创建IndexSkuTintSku
+                        index_sku_tint_sku = IndexSkuTintSku(
+                            indexSku=tint.lensSku,
+                            tintSku=tint.sku,
+                            price=[cost_type]
+                        )
+                        
+                        reference_tint.lensPackageIndexTintList.append(index_sku_tint_sku)
+                        print(f"      ✓ Added matching tintBase info from {lens_index}: indexSku={tint.lensSku}, tintSku={tint.sku}")
+                        break  # 找到匹配项后跳出内层循环
+        
+        print(f"      Total items in lensPackageIndexTintList: {len(reference_tint.lensPackageIndexTintList)}")
+    
+    print("    ✓ Finished populating lensPackageIndexTintList for all reference tints")
+    return processed_first_tints
