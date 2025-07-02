@@ -3,9 +3,8 @@ from lenspackage.lcapi.IndexService import IndexService
 from lenspackage.lcapi.LensTypeService import LensTypeService
 from lenspackage.lcapi.PdpService import PdpService
 from lenspackage.lcapi.RxTypeService import RxTypeService
-from lenspackage.lcapi.data_models import create_compatible_tints_configuration_response_from_lc_config, \
+from lenspackage.lcapi.TintHelper import create_compatible_tints_configuration_response_from_lc_config, \
     group_tints_by_classification
-from lenspackage.lcapi.tints_config import lc_tints_config
 
 from lenspackage.parsecsv.CsvParser import parseCsvAndGenProductPackagesList, parseCsvAndGenPackageDetails
 

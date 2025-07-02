@@ -3,9 +3,10 @@ import requests
 from lenspackage.LensPackageConstant import getDefaultRx, csv_lens_type_map, decideRegion
 from settings import env_key, yaml_cfg
 from lenspackage.lcapi.data_models import (
-    create_compatible_lenses_response_from_dict,
-    filter_lenses_by_index,
-    create_compressed_lens_indexes
+    CompatibleLens,
+    CompatibleLensesResponse,
+    CostInfo,
+    CompressedLensIndex
 )
 
 class IndexService:
@@ -55,7 +56,7 @@ class IndexService:
             print("Compatible lenses retrieved successfully: url ", url)
             response_data = response.json()
             # 转换为data class
-            return create_compatible_lenses_response_from_dict(response_data)
+            return self.create_compatible_lenses_response_from_dict(response_data)
         else:
             print(f"Failed to retrieve compatible lenses, status code: {response.status_code}")
             return None
@@ -81,10 +82,10 @@ class IndexService:
                 continue
 
         # 使用工具函数过滤匹配的镜片
-        matched_lenses = filter_lenses_by_index(compatible_lenses, csv_index_float)
+        matched_lenses = self.filter_lenses_by_index(compatible_lenses, csv_index_float)
 
         # 使用data class创建压缩数据格式
-        compressed_indexes = create_compressed_lens_indexes(matched_lenses, decideRegion())
+        compressed_indexes = self.create_compressed_lens_indexes(matched_lenses, decideRegion())
 
         return matched_lenses, compressed_indexes
 
@@ -133,3 +134,25 @@ class IndexService:
             unique_tints.append(None)
 
         return unique_tints
+
+    def create_compatible_lenses_response_from_dict(self, data: dict) -> CompatibleLensesResponse:
+        """从字典创建CompatibleLensesResponse实例"""
+        lenses = [CompatibleLens(**lens) for lens in data.get('compatibleLenses', [])]
+        return CompatibleLensesResponse(compatibleLenses=lenses)
+
+    def filter_lenses_by_index(self, lenses, target_indexes):
+        """根据目标index列表过滤镜片"""
+        return [lens for lens in lenses if lens.lensIndex in target_indexes]
+
+    def create_compressed_lens_indexes(self, lenses, region: str):
+        """将镜片列表转换为压缩格式"""
+        compressed_indexes = []
+        for lens in lenses:
+            cost_info = CostInfo(price=lens.price, region=region)
+            compressed_index = CompressedLensIndex(
+                cost=[cost_info],
+                lensIndex=lens.lensIndex,
+                sku=lens.sku
+            )
+            compressed_indexes.append(compressed_index)
+        return compressed_indexes

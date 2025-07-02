@@ -4,7 +4,7 @@ import yaml
 
 from lenspackage.LensPackageConstant import getDefaultRx, csv_lens_type_map, decideRegion
 from settings import env_key, yaml_cfg
-from lenspackage.lcapi.data_models import CompatibleCoatingsResponse, create_coating_response_from_dict
+from lenspackage.lcapi.data_models import CoatingItem, CoatingType, CompatibleCoatingsResponse
 
 
 class CoatingService:
@@ -54,7 +54,17 @@ class CoatingService:
             print("Compatible coatings retrieved successfully: url ", url)
             response_data = response.json()
             # 转换为data class
-            return create_coating_response_from_dict(response_data)
+            return self.create_coating_response_from_dict(response_data)
         else:
             print(f"Failed to retrieve compatible coatings, status code: {response.status_code}")
             return None
+
+    def create_coating_response_from_dict(self, data: dict) -> CompatibleCoatingsResponse:
+        """从字典创建CompatibleCoatingsResponse实例"""
+        processed_coatings = []
+        for coating_dict in data.get('compatibleCoatings', []):
+            items = [CoatingItem(**item) for item in coating_dict.get('items', [])]
+            coating_type = CoatingType(type=coating_dict['type'], items=items)
+            processed_coatings.append(coating_type)
+        
+        return CompatibleCoatingsResponse(compatibleCoatings=processed_coatings)

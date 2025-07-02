@@ -2,7 +2,7 @@ import requests
 
 from lenspackage.LensPackageConstant import getDefaultRx, csv_lens_type_map, decideRegion
 from settings import env_key, yaml_cfg
-from lenspackage.lcapi.data_models import create_compatible_tints_response_from_dict
+from lenspackage.lcapi.data_models import TintItem, CompatibleTintsResponse
 
 
 class TintService:
@@ -48,7 +48,15 @@ class TintService:
             print("Compatible tints retrieved successfully")
             response_data = response.json()
             # 转换为data class
-            return create_compatible_tints_response_from_dict(response_data)
+            return self.create_compatible_tints_response_from_dict(response_data)
         else:
             print(f"Failed to retrieve compatible tints, status code: {response.status_code}")
             return None
+
+    def create_compatible_tints_response_from_dict(self, data: dict) -> CompatibleTintsResponse:
+        """从字典创建CompatibleTintsResponse实例"""
+        tints = [TintItem(**tint) for tint in data.get('compatibleTints', [])]
+        return CompatibleTintsResponse(
+            compatibleTints=tints,
+            additionalChargeInfo=data.get('additionalChargeInfo', {})
+        )
