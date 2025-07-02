@@ -144,34 +144,52 @@ class LensPackageGeneratorService:
                 else:
                     print(f"    No coatings for lensSku {lens_item.sku}")
 
-            # 校验同组内所有lensItem的最高价格coating的sku是否一致
-            if len(max_price_coatings) > 1:
-                first_sku = None
-                all_same_sku = True
-
-                for lens_sku, coating in max_price_coatings.items():
-                    if first_sku is None:
-                        first_sku = coating.sku
-                    elif coating.sku != first_sku:
-                        all_same_sku = False
-                        break
-
-                if all_same_sku:
-                    print(f"    ✓ Coating validation PASSED: All lensItems have same max price coating SKU: {first_sku}")
-                else:
-                    print(f"    ✗ Coating validation FAILED: Different max price coating SKUs found:")
-                    for lens_sku, coating in max_price_coatings.items():
-                        print(f"      Lens {lens_sku}: {coating.sku} (${coating.price})")
-            elif len(max_price_coatings) == 1:
-                lens_sku, coating = list(max_price_coatings.items())[0]
-                print(f"    ✓ Coating validation PASSED: Single lensItem with max price coating SKU: {coating.sku}")
+            # 选择最高价格的coating作为该lensIndex的代表coating
+            if max_price_coatings:
+                # 从所有最高价格coating中选择一个作为代表
+                representative_coating = list(max_price_coatings.values())[0]
+                lens_coating_map[lens_index] = representative_coating
+                print(f"    Selected representative coating for lensIndex {lens_index}: {representative_coating.sku}")
             else:
-                print(f"    ⚠ No coatings found for any lensItem in this group")
+                print(f"    No coating selected for lensIndex {lens_index}")
 
-            lens_coating_map[lens_index] = coating
+        # 在所有lensIndex处理完毕后，校验lens_coating_map中每个CoatingItem的sku是否都相同
+        print(f"\n------> Validating coating SKUs across all lensIndexes")
+        self.validateCoatingSkus(lens_coating_map)
 
         print(f"遍历完成，lens_coating_map size = {len(lens_tints_map)} lens_tints_map size = {len(lens_tints_map)}")
 
+    def validateCoatingSkus(self, lens_coating_map):
+        """
+        校验lens_coating_map中每个CoatingItem的sku是否都相同
+        
+        Args:
+            lens_coating_map: 包含每个lensIndex对应coating的字典
+        """
+        if not lens_coating_map:
+            print("    ⚠ No lens coating map to validate")
+            return
+        
+        # 收集所有coating的sku
+        all_skus = []
+        for lens_index, coating in lens_coating_map.items():
+            if coating and hasattr(coating, 'sku'):
+                all_skus.append((lens_index, coating.sku))
+        
+        if not all_skus:
+            print("    ⚠ No coatings with SKU found in lens coating map")
+            return
+        
+        # 检查所有sku是否相同
+        first_sku = all_skus[0][1]
+        all_same_sku = all(sku == first_sku for _, sku in all_skus)
+        
+        if all_same_sku:
+            print(f"    ✓ Coating SKU validation PASSED: All coatings have same SKU: {first_sku}")
+        else:
+            print(f"    ✗ Coating SKU validation FAILED: Different coating SKUs found:")
+            for lens_index, sku in all_skus:
+                print(f"      Lens {lens_index}: {sku}")
 
     def generateJsonFile(self):
         print("read csv file start ------>")
