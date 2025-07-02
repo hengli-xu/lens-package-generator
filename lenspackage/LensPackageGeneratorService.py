@@ -2,6 +2,7 @@ from typing import List
 
 from lenspackage.CsvPackage import CsvProductPackageList, CsvPackage
 from lenspackage.LensPackageConstant import csv_lens_type_map
+from lenspackage.datamodels.package_data_models import ProductPackage
 from lenspackage.lcapi.IndexService import IndexService
 from lenspackage.lcapi.LensTypeService import LensTypeService
 from lenspackage.lcapi.PdpService import PdpService
@@ -118,7 +119,7 @@ class LensPackageGeneratorService:
             lc_tints_config = create_compatible_tints_configuration_response_from_lc_config()
             result = group_tints_by_classification(lens_tints, lc_tints_config)
 
-            print(f"  group_tints_by_classification typeList size:  {len(result.typeList)}")
+            print(f"  group_tints_by_classification typeList size:  {len(result)}")
             lens_tints_map[lens_index] = lens_tints
             # 对每个lens_item调用CoatingService并校验coating
             from lenspackage.lcapi.CoatingService import CoatingService
@@ -196,8 +197,8 @@ class LensPackageGeneratorService:
             LensPackage: 组装好的镜片包数据
         """
         from lenspackage.datamodels.package_data_models import (
-            LensPackage, CoatingType, Index, LensType, 
-            RxType, TintType, TintItem, CostType
+            LensPackage, CoatingType, Index, LensType,
+            RxType, CompatibleTintsType, TintItem, CostType
         )
         from lenspackage.LensPackageConstant import decideRegion
         
@@ -243,7 +244,74 @@ class LensPackageGeneratorService:
         
         return lens_package
 
-    def generateJsonFile(self):
+    def assembleProductPackage(self, product_id, lens_packages):
+        """
+        组装ProductPackage数据
+        
+        Args:
+            product_id: 产品ID
+            lens_packages: LensPackage列表
+            
+        Returns:
+            ProductPackage: 组装好的产品包数据
+        """
+        from lenspackage.datamodels.package_data_models import ProductPackage
+        
+        product_package = ProductPackage(
+            lensPackages=lens_packages,
+            objectID=product_id,
+            productId=product_id
+        )
+        
+        return product_package
+
+    def saveProductPackagesToFile(self, product_packages: List[ProductPackage]):
+        """
+        将ProductPackage列表保存到本地JSON文件
+        
+        Args:
+            product_packages: ProductPackage列表
+        """
+        import json
+        import os
+        from datetime import datetime
+        
+        # 创建输出目录
+        output_dir = "./output"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
+        # 生成文件名（包含时间戳）
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"product_packages_{timestamp}.json"
+        filepath = os.path.join(output_dir, filename)
+        
+        # 将ProductPackage对象转换为字典
+        def dataclass_to_dict(obj):
+            if hasattr(obj, '__dict__'):
+                result = {}
+                for key, value in obj.__dict__.items():
+                    if isinstance(value, list):
+                        result[key] = [dataclass_to_dict(item) for item in value]
+                    elif hasattr(value, '__dict__'):
+                        result[key] = dataclass_to_dict(value)
+                    else:
+                        result[key] = value
+                return result
+            return obj
+        
+        # 转换数据
+        data_to_save = [dataclass_to_dict(package) for package in product_packages]
+        
+        # 写入文件
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data_to_save, f, indent=2, ensure_ascii=False)
+            print(f"ProductPackages saved to: {filepath}")
+        except Exception as e:
+            print(f"Error saving ProductPackages to file: {e}")
+
+    def generateJsonFile(self) -> List[ProductPackage]:
         print("read csv file start ------>")
         csvProductIdPackages: list[CsvProductPackageList] = []  # 明确列表将存储 CsvProductPackageList 对象
         parseCsvAndGenProductPackagesList(self, csvProductIdPackages)
@@ -253,10 +321,34 @@ class LensPackageGeneratorService:
 
         print("parse csv file end")
 
+        # 收集所有ProductPackage
+        all_product_packages = []
+        
         for productPackage in csvProductIdPackages:
             pdp_service = PdpService(session=self.session, token_value=self.tokenValue)
             product_skus =pdp_service.getPdp(productPackage.productId)
             # 目前只使用一个sku进行查询，后续需要考虑是否需要遍历每个sku，理论上一个productId下面的每个sku只是颜色不同，走lc流程的所有数据都是一样的
             picked_sku = product_skus[0]
+            
+            # 收集该productId下的所有lens packages
+            lens_packages = []
             for packageId in productPackage.packageList:
-                self.checkAtgData(productId=productPackage.productId,frameSku = picked_sku, csvPackage = result_map[packageId])
+                lens_package = self.checkAtgData(productId=productPackage.productId, frameSku=picked_sku, csvPackage=result_map[packageId])
+                if lens_package:
+                    lens_packages.append(lens_package)
+            
+            # 组装ProductPackage
+            if lens_packages:
+                product_package = self.assembleProductPackage(productPackage.productId, lens_packages)
+                all_product_packages.append(product_package)
+                print(f"Assembled ProductPackage: {product_package.productId} with {len(product_package.lensPackages)} lens packages")
+                # 这里可以进一步处理product_package，比如保存到文件或返回
+            print(f"generate lens package for more productId {productPackage.productId} end")
+        
+        print("generate lens package end")
+        print(f"Total ProductPackages generated: {len(all_product_packages)}")
+        
+        # 将ProductPackage列表写入本地文件
+        self.saveProductPackagesToFile(all_product_packages)
+        
+        return all_product_packages

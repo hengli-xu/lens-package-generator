@@ -74,7 +74,7 @@ def group_tints_by_classification(unique_tints, lc_tints_config):
     Returns:
         CompatibleTintsDto: 分类聚合后的数据
     """
-    from lenspackage.datamodels.data_models import CompatibleTintsType, CompatibleTintsDto
+    from lenspackage.datamodels.data_models import CompatibleTintsType
     
     # 创建分类映射
     type_groups = {}
@@ -103,12 +103,8 @@ def group_tints_by_classification(unique_tints, lc_tints_config):
     for config_item in lc_tints_config.tints:
         if config_item.name in type_groups and len(type_groups[config_item.name].compatibleTintItemDtoList) > 0:
             filtered_type_list.append(type_groups[config_item.name])
-    
-    return CompatibleTintsDto(
-        typeList=filtered_type_list,
-        additionalChargeInfo={},
-        indexTintsRequest=False
-    )
+
+    return filtered_type_list
 
 
 def validateTintConsistency(lens_tints_map):

@@ -185,12 +185,4 @@ class CompatibleTintsType:
             self.compatibleTintItemDtoList = []
 
 
-@dataclass
-class CompatibleTintsDto:
-    """兼容Tint DTO数据类 - 对应Kotlin的CompatibleTintsDto"""
-    typeList: List[CompatibleTintsType]
-    additionalChargeInfo: Optional[dict] = None
-    indexTintsRequest: bool = False
-
-
  

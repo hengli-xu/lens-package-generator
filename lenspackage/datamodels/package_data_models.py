@@ -60,7 +60,7 @@ class TintItem:
 
 
 @dataclass
-class TintType:
+class CompatibleTintsType:
     """Tint类型数据类"""
     compatibleTintItemDtoList: List[TintItem]
     index: int
@@ -81,7 +81,7 @@ class LensPackage:
     lensType: LensType
     rxType: RxType
     shortDescription: str
-    tintType: List[TintType]
+    tintType: List[CompatibleTintsType]
     title: str
     platform: Optional[str] = None
 
