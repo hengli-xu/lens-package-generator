@@ -6,7 +6,8 @@ from lenspackage.lcapi.LensTypeService import LensTypeService
 from lenspackage.lcapi.PdpService import PdpService
 from lenspackage.lcapi.RxTypeService import RxTypeService
 from lenspackage.lcapi.TintHelper import create_compatible_tints_configuration_response_from_lc_config, \
-    group_tints_by_classification
+    group_tints_by_classification, validateTintConsistency
+from lenspackage.lcapi.CoatingHelper import validateCoatingSkus
 from lenspackage.lcapi.data_models import CoatingItem
 
 from lenspackage.parsecsv.CsvParser import parseCsvAndGenProductPackagesList, parseCsvAndGenPackageDetails
@@ -155,118 +156,13 @@ class LensPackageGeneratorService:
 
         # 在所有lensIndex处理完毕后，校验lens_coating_map中每个CoatingItem的sku是否都相同
         print(f"\n------> Validating coating SKUs across all lensIndexes")
-        self.validateCoatingSkus(lens_coating_map)
+        validateCoatingSkus(lens_coating_map)
 
         print(f"遍历完成，lens_coating_map size = {len(lens_tints_map)} lens_tints_map size = {len(lens_tints_map)}")
 
         # 在所有lensIndex处理完毕后，校验lens_tints_map
         print(f"\n------> Validating tint consistency across all lensIndexes")
-        self.validateTintConsistency(lens_tints_map)
-
-    def validateTintConsistency(self, lens_tints_map):
-        """
-        校验lens_tints_map中不同key对应的List[TintItem]是否满足一致性条件
-        
-        Args:
-            lens_tints_map: 包含每个lensIndex对应tint列表的字典
-        """
-        if not lens_tints_map:
-            print("    ⚠ No lens tints map to validate")
-            return
-        
-        if len(lens_tints_map) == 1:
-            print("    ✓ Tint validation SKIPPED: Only one lensIndex, no consistency check needed")
-            return
-        
-        # 获取第一个key作为参考
-        first_key = list(lens_tints_map.keys())[0]
-        first_tints = lens_tints_map[first_key]
-        
-        print(f"    Using lensIndex {first_key} as reference with {len(first_tints)} tints")
-        
-        # 条件1: 检查所有List[TintItem]的数量是否相同
-        all_same_count = True
-        for lens_index, tints in lens_tints_map.items():
-            if len(tints) != len(first_tints):
-                all_same_count = False
-                print(f"    ✗ Tint count mismatch: {lens_index} has {len(tints)} tints, {first_key} has {len(first_tints)} tints")
-                break
-        
-        if not all_same_count:
-            print("    ✗ Tint validation FAILED: Different tint counts across lensIndexes")
-            return
-        
-        print(f"    ✓ Tint count validation PASSED: All lensIndexes have {len(first_tints)} tints")
-        
-        # 条件2: 检查tint一致性
-        validation_passed = True
-        
-        for i, reference_tint in enumerate(first_tints):
-            print(f"    Checking tint {i+1}: {reference_tint.tintBase} (sku: {reference_tint.sku or 'empty'})")
-            
-            # 检查其他所有lensIndex中是否存在匹配的tint
-            for lens_index, tints in lens_tints_map.items():
-                if lens_index == first_key:
-                    continue
-                
-                found_match = False
-                
-                if reference_tint.sku:  # sku不为空，按sku匹配
-                    for tint in tints:
-                        if tint.sku == reference_tint.sku:
-                            found_match = True
-                            print(f"      ✓ Found matching SKU in {lens_index}: {tint.sku}")
-                            break
-                else:  # sku为空，按tintBase匹配
-                    for tint in tints:
-                        if tint.tintBase == reference_tint.tintBase:
-                            found_match = True
-                            print(f"      ✓ Found matching tintBase in {lens_index}: {tint.tintBase}")
-                            break
-                
-                if not found_match:
-                    validation_passed = False
-                    if reference_tint.sku:
-                        print(f"      ✗ No matching SKU '{reference_tint.sku}' found in {lens_index}")
-                    else:
-                        print(f"      ✗ No matching tintBase '{reference_tint.tintBase}' found in {lens_index}")
-        
-        if validation_passed:
-            print("    ✓ Tint consistency validation PASSED: All tints are consistent across lensIndexes")
-        else:
-            print("    ✗ Tint consistency validation FAILED: Inconsistent tints found across lensIndexes")
-
-    def validateCoatingSkus(self, lens_coating_map):
-        """
-        校验lens_coating_map中每个CoatingItem的sku是否都相同
-        
-        Args:
-            lens_coating_map: 包含每个lensIndex对应coating的字典
-        """
-        if not lens_coating_map:
-            print("    ⚠ No lens coating map to validate")
-            return
-        
-        # 收集所有coating的sku
-        all_skus = []
-        for lens_index, coating in lens_coating_map.items():
-            if coating and hasattr(coating, 'sku'):
-                all_skus.append((lens_index, coating.sku))
-        
-        if not all_skus:
-            print("    ⚠ No coatings with SKU found in lens coating map")
-            return
-        
-        # 检查所有sku是否相同
-        first_sku = all_skus[0][1]
-        all_same_sku = all(sku == first_sku for _, sku in all_skus)
-        
-        if all_same_sku:
-            print(f"    ✓ Coating SKU validation PASSED: All coatings have same SKU: {first_sku}")
-        else:
-            print(f"    ✗ Coating SKU validation FAILED: Different coating SKUs found:")
-            for lens_index, sku in all_skus:
-                print(f"      Lens {lens_index}: {sku}")
+        validateTintConsistency(lens_tints_map)
 
     def generateJsonFile(self):
         print("read csv file start ------>")
