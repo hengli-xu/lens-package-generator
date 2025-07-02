@@ -50,7 +50,7 @@ lc_tints_config = {
 
 def create_compatible_tints_configuration_response_from_dict(data: dict):
     """从字典创建CompatibleTintsConfigurationResponse实例"""
-    from lenspackage.lcapi.data_models import TintTypeItem, CompatibleTintsConfigurationResponse
+    from lenspackage.datamodels.data_models import TintTypeItem, CompatibleTintsConfigurationResponse
     
     tints = [TintTypeItem(**tint) for tint in data.get('tints', [])]
     # 按照order字段排序
@@ -74,7 +74,7 @@ def group_tints_by_classification(unique_tints, lc_tints_config):
     Returns:
         CompatibleTintsDto: 分类聚合后的数据
     """
-    from lenspackage.lcapi.data_models import CompatibleTintsType, CompatibleTintsDto
+    from lenspackage.datamodels.data_models import CompatibleTintsType, CompatibleTintsDto
     
     # 创建分类映射
     type_groups = {}
@@ -200,9 +200,8 @@ def populateLensPackageIndexTintList(lens_tints_map):
     Returns:
         list: 包含填充了lensPackageIndexTintList的第一个基准TintItem列表
     """
-    from lenspackage.lcapi.data_models import IndexSkuTintSku, CostType, TintItem
-    import copy
-    
+    from lenspackage.datamodels.data_models import IndexSkuTintSku, CostType, TintItem
+
     if not lens_tints_map or len(lens_tints_map) <= 1:
         print("    ⚠ No need to populate lensPackageIndexTintList: lens_tints_map size <= 1")
         return list(lens_tints_map.values())[0] if lens_tints_map else []

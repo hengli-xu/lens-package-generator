@@ -8,7 +8,7 @@ from lenspackage.lcapi.RxTypeService import RxTypeService
 from lenspackage.lcapi.TintHelper import create_compatible_tints_configuration_response_from_lc_config, \
     group_tints_by_classification, validateTintConsistency, populateLensPackageIndexTintList
 from lenspackage.lcapi.CoatingHelper import validateCoatingSkus
-from lenspackage.lcapi.data_models import CoatingItem
+from lenspackage.datamodels.data_models import CoatingItem
 
 from lenspackage.parsecsv.CsvParser import parseCsvAndGenProductPackagesList, parseCsvAndGenPackageDetails
 
@@ -66,7 +66,7 @@ class LensPackageGeneratorService:
         按lensIndex分组处理tint
         """
         from lenspackage.lcapi.TintService import TintService
-        from lenspackage.lcapi.data_models import TintItem
+        from lenspackage.datamodels.data_models import TintItem
         
         # 按lensIndex分组
         index_service = IndexService(session=self.session, token_value=self.tokenValue)

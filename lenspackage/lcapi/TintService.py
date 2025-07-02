@@ -2,7 +2,7 @@ import requests
 
 from lenspackage.LensPackageConstant import getDefaultRx, csv_lens_type_map, decideRegion
 from settings import env_key, yaml_cfg
-from lenspackage.lcapi.data_models import TintItem, CompatibleTintsResponse
+from lenspackage.datamodels.data_models import TintItem, CompatibleTintsResponse
 
 
 class TintService:

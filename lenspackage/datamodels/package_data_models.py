@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 # 从data_models.py导入重复的数据类
-from lenspackage.lcapi.data_models import CostType, IndexSkuTintSku
+from lenspackage.datamodels.data_models import CostType
 
 
 @dataclass

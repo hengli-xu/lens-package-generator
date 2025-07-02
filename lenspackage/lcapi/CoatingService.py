@@ -1,10 +1,8 @@
 import requests
-import json
-import yaml
 
 from lenspackage.LensPackageConstant import getDefaultRx, csv_lens_type_map, decideRegion
 from settings import env_key, yaml_cfg
-from lenspackage.lcapi.data_models import CoatingItem, CoatingType, CompatibleCoatingsResponse
+from lenspackage.datamodels.data_models import CoatingItem, CoatingType, CompatibleCoatingsResponse
 
 
 class CoatingService:
