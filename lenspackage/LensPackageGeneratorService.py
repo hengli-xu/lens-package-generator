@@ -1,7 +1,7 @@
 from typing import List
 
 from lenspackage.CsvPackage import CsvProductPackageList, CsvPackage
-from lenspackage.LensPackageConstant import csv_lens_type_map
+from lenspackage.LensPackageConstant import csv_lens_type_map, decideRegion
 from lenspackage.datamodels.package_data_models import ProductPackage
 from lenspackage.lcapi.IndexService import IndexService
 from lenspackage.lcapi.LensTypeService import LensTypeService
@@ -283,7 +283,7 @@ class LensPackageGeneratorService:
         
         # 生成文件名（包含时间戳）
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"product_packages_{timestamp}.json"
+        filename = f"{decideRegion()}_product_packages_{timestamp}.json"
         filepath = os.path.join(output_dir, filename)
         
         # 将ProductPackage对象转换为字典
