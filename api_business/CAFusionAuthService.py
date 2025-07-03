@@ -2,10 +2,12 @@ import requests
 import json
 from http.cookies import SimpleCookie
 import yaml
+
+from lenspackage.LensPackageConstant import decideRegion
 from settings import env_key, yaml_cfg
 
 
-class FusionAuthService:
+class CAFusionAuthService:
 
     def __init__(self):
 

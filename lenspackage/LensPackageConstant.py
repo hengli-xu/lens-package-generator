@@ -80,6 +80,44 @@ lens_type_polarized_sunglass = LensType(
         sub_type="Polarized"
     )
 
+lens_type_xactive_new_gen = LensType(
+        type="Photochromic",
+        sub_type="TransitionXActiveNewGen"
+    )
+
+lens_type_gen_s = LensType(
+        type="Photochromic",
+        sub_type="TransitionSignatureGenS"
+    )
+# TODO: 带确认这个操作路径
+lens_type_153_blokz = LensType(
+        type="Clear",
+        sub_type="BlokzGeneralUse"
+    )
+
+# TODO: 带确认这个操作路径
+lens_type_high_power = LensType(
+        type="Clear",
+        sub_type="BlokzGeneralUse"
+    )
+
+# TODO: 带确认这个操作路径
+lens_type_drive_wear = LensType(
+        type="Sunglasses",
+        sub_type="TransitionsDriveWear"
+    )
+
+# TODO: 带确认这个操作路径
+lens_type_general_use_clear = LensType(
+        type="Clear",
+        sub_type="GeneralUse"
+    )
+# TODO: 带确认这个操作路径
+lens_type_photochromic_polarized = LensType(
+        type="Clear",
+        sub_type="GeneralUse"
+    )
+
 """Lens type for EyeQLenz+"""
 lens_type_eye_q_lenz_plus = LensType(
         type="ZenniIdGuard",
@@ -87,15 +125,22 @@ lens_type_eye_q_lenz_plus = LensType(
     )
 
 csv_lens_type_map = {
-        CSV_LENS_TYPE_BLOKZ_PHOTOCHROMIC: LensType(
-            type="Blokz",
-            sub_type="Photochromic"
-        ),
-        CSV_LENS_TYPE_EYE_Q_LENZ_PLUS: lens_type_eye_q_lenz_plus,
-        CSV_LENS_TYPE_BLOKZ: lens_type_blokz,
-        CSV_LENS_TYPE_PREMIUM_PROGRESSIVE_PLUS_BLOKZ: lens_type_blokz,
-        CSV_LENS_TYPE_POLARIZED_SUNGLASSES: lens_type_polarized_sunglass
-    }
+    CSV_LENS_TYPE_BLOKZ_PHOTOCHROMIC: LensType(
+        type="Blokz",
+        sub_type="Photochromic"
+    ),
+    CSV_LENS_TYPE_EYE_Q_LENZ_PLUS: lens_type_eye_q_lenz_plus,
+    CSV_LENS_TYPE_BLOKZ: lens_type_blokz,
+    CSV_LENS_TYPE_PREMIUM_PROGRESSIVE_PLUS_BLOKZ: lens_type_blokz,
+    CSV_LENS_TYPE_POLARIZED_SUNGLASSES: lens_type_polarized_sunglass,
+    CSV_LENS_TYPE_PHOTOCHROMIC_TRANSITIONS_XTRACTIVE_NEW_GEN: lens_type_xactive_new_gen,
+    CSV_LENS_TYPE_PREMIUM_PROGRESSIVE_PLUS_PHOTOCHROMIC_POLARIZED: lens_type_photochromic_polarized,
+    CSV_LENS_TYPE_IMPACT_RESISTANT_PHOTOCHROMIC_TRANSITIONS_GEN_S: lens_type_gen_s,
+    CSV_LENS_TYPE_HIGH_POWER_BLOKZ: lens_type_high_power,
+    CSV_LENS_TYPE_153_BLOKZ: lens_type_153_blokz,
+    CSV_LENS_TYPE_TRANSITIONS_DRIVEWEAR: lens_type_drive_wear,
+    CSV_LENS_TYPE_GENERAL_USE_CLEAR_LENS: lens_type_general_use_clear
+}
 
 rx_type_single_vision = RxType(
         prescription_type=RX_TYPE_SINGLE_VISION
@@ -107,13 +152,20 @@ rx_type_progressive_premium = RxType(
     )
 
 csv_rx_type_map = {
-        CSV_LENS_TYPE_BLOKZ_PHOTOCHROMIC: rx_type_single_vision,
-        CSV_LENS_TYPE_BLOKZ: rx_type_single_vision,
-        CSV_LENS_TYPE_PREMIUM_PROGRESSIVE_PLUS_BLOKZ: rx_type_progressive_premium,
-        f"{CSV_LENS_TYPE_EYE_Q_LENZ_PLUS}_{PLATFORM_ANDROID}": rx_type_progressive_premium,
-        f"{CSV_LENS_TYPE_EYE_Q_LENZ_PLUS}_{PLATFORM_IOS}": rx_type_single_vision,
-        CSV_LENS_TYPE_POLARIZED_SUNGLASSES: rx_type_single_vision
-    }
+    CSV_LENS_TYPE_BLOKZ_PHOTOCHROMIC: rx_type_single_vision,
+    CSV_LENS_TYPE_BLOKZ: rx_type_single_vision,
+    CSV_LENS_TYPE_PREMIUM_PROGRESSIVE_PLUS_BLOKZ: rx_type_progressive_premium,
+    f"{CSV_LENS_TYPE_EYE_Q_LENZ_PLUS}_{PLATFORM_ANDROID}": rx_type_progressive_premium,
+    f"{CSV_LENS_TYPE_EYE_Q_LENZ_PLUS}_{PLATFORM_IOS}": rx_type_single_vision,
+    CSV_LENS_TYPE_POLARIZED_SUNGLASSES: rx_type_single_vision,
+    CSV_LENS_TYPE_PHOTOCHROMIC_TRANSITIONS_XTRACTIVE_NEW_GEN: rx_type_single_vision,
+    CSV_LENS_TYPE_PREMIUM_PROGRESSIVE_PLUS_PHOTOCHROMIC_POLARIZED: rx_type_progressive_premium,
+    CSV_LENS_TYPE_IMPACT_RESISTANT_PHOTOCHROMIC_TRANSITIONS_GEN_S: rx_type_single_vision,
+    CSV_LENS_TYPE_HIGH_POWER_BLOKZ: rx_type_single_vision,
+    CSV_LENS_TYPE_153_BLOKZ: rx_type_single_vision,
+    CSV_LENS_TYPE_TRANSITIONS_DRIVEWEAR: rx_type_single_vision,
+    CSV_LENS_TYPE_GENERAL_USE_CLEAR_LENS: rx_type_single_vision
+}
 
 # default rx
 def getDefaultRx():

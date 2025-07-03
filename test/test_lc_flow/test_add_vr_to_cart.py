@@ -1,5 +1,5 @@
 
-from api_business.FusionAuthService import FusionAuthService
+from api_business.CAFusionAuthService import CAFusionAuthService
 from api_business.ATGAccountService import ATGAccountService
 import pytest
 
@@ -8,7 +8,7 @@ class TestAddVrToCart:
         """
         Test to add a VR product to the cart.
         """
-        fusion_auth_service = FusionAuthService()
+        fusion_auth_service = CAFusionAuthService()
 
         token_value = fusion_auth_service.login(
             login_id="apitest1@ca.com",

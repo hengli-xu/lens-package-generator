@@ -23,3 +23,29 @@ CA:
     login_id: "prod-user@example.com"
     password: "prod-password"
     ip_address: "203.0.113.42"
+
+US:
+  QA:
+    host: "https://auth.zenniaws.com"
+    atg_host: "qaus.zenniaws.com"
+    application_id: "5b41ad86-8d2d-4669-8cae-e01df5b02f81"
+    api_key: "7OgTVLgceTwxbQteijFY1Sa-2j9LW9Hb3CdSas5l_Izl1JmdrHOT7XWm"
+    login_id: "apitest1@us.com"
+    password: "Zn@12345"
+    ip_address: "127.0.0.1"
+    auth_code: "3597e60dfb5417d475511fe3b001554a"
+  SIT:
+    host: "https://auth.zenniaws.com"
+    atg_host: "situs.zenniaws.com"
+    application_id: "3e0de0f7-addd-4fa3-9edf-2fd66df71c68"
+    api_key: "mcH3dfCmghVJV9iqbazuASTJrus_E4YIeT8J4dpF2UFauClII5DG8Qho"
+    login_id: "apitest1@us.com"
+    password: "Zn@12345"
+    ip_address: "127.0.0.1"
+    auth_code: "553d39bd4ed40604a4ee6240e5d0a632"
+  Production:
+    application_id: "prod-app-id"
+    api_key: "prod-api-key"
+    login_id: "prod-user@example.com"
+    password: "prod-password"
+    ip_address: "203.0.113.42"
