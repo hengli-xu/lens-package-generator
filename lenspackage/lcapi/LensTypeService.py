@@ -3,14 +3,15 @@ import json
 from http.cookies import SimpleCookie
 import yaml
 
-from lenspackage.LensPackageConstant import getDefaultRx, decideRegion
+from lenspackage.LensPackageConstant import getDefaultRx, US_REGION
 from settings import env_key, yaml_cfg
 
 
 class LensTypeService:
-    def __init__(self, session=None, token_value=None):
+    def __init__(self, session=None, token_value=None, region=None):
         self.session = session or requests.Session()
-        config = yaml_cfg[decideRegion()][env_key]
+        self.region = region or US_REGION  # Default to US_REGION if no region provided
+        config = yaml_cfg[self.region][env_key]
         self.atg_host = config['atg_host']
 
         self.headers = {

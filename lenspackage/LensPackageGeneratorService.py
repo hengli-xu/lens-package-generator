@@ -1,7 +1,7 @@
 from typing import List
 
 from lenspackage.CsvPackage import CsvProductPackageList, CsvPackage
-from lenspackage.LensPackageConstant import csv_lens_type_map, decideRegion
+from lenspackage.LensPackageConstant import csv_lens_type_map, US_REGION
 from lenspackage.datamodels.package_data_models import ProductPackage
 from lenspackage.lcapi.IndexService import IndexService
 from lenspackage.lcapi.LensTypeService import LensTypeService
@@ -19,9 +19,10 @@ class LensPackageGeneratorService:
     package_detail_csv_file = "./csv/PackagesDetail.csv"
     product_packages_csv_file = "./csv/Product-Packages.csv"
 
-    def __init__(self, session=None, token_value=None):
+    def __init__(self, session=None, token_value=None,region=None):
         self.session = session
         self.tokenValue = token_value
+        self.region = region or US_REGION
 
     # 核心方法，检查atg数据是否符合要求
     def checkAtgData(self, productId, frameSku, csvPackage):
@@ -30,7 +31,7 @@ class LensPackageGeneratorService:
         # 1. 获取RxType(e.g. Single Vision)的详情
         self.checkRxTypeWithAtg(csvPackage, frameSku, productId)
         # 2. 获取lensType的详情
-        lens_type_service = LensTypeService(session=self.session, token_value=self.tokenValue)
+        lens_type_service = LensTypeService(session=self.session, token_value=self.tokenValue, region=self.region)
         compatible_lens_types = lens_type_service.getUsageTypes(productId, frameSku, csvPackage)
         # 3. 获取index的详情
         # indexes是用作lens package需要的字段
@@ -45,7 +46,7 @@ class LensPackageGeneratorService:
         return lens_package
 
     def checkRxTypeWithAtg(self, csvPackage, frameSku, productId):
-        rx_type_service = RxTypeService(session=self.session, token_value=self.tokenValue)
+        rx_type_service = RxTypeService(session=self.session, token_value=self.tokenValue, region=self.region)
         compatible_lens_types = rx_type_service.getCompatibleLensTypes(productId, frameSku, csvPackage)
         passCheck = rx_type_service.checkRxTypeCompatibility(csvPackage, compatible_lens_types)
         if passCheck:
@@ -54,7 +55,7 @@ class LensPackageGeneratorService:
             print(f"------> RxType check : productId {productId} frameSku {frameSku} packageId : {csvPackage.id} fail")
 
     def checkIndexWithAtg(self, csvPackage, frameSku, productId):
-        index_service = IndexService(session=self.session, token_value=self.tokenValue)
+        index_service = IndexService(session=self.session, token_value=self.tokenValue, region=self.region)
         compatible_lenses_response = index_service.getCompatibleLenses(productId, frameSku, csvPackage)
         compatible_lenses, compressed_indexes = index_service.checkIndexCompatibility(csvPackage, compatible_lenses_response)
         
@@ -73,10 +74,10 @@ class LensPackageGeneratorService:
         from lenspackage.datamodels.data_models import TintItem
         
         # 按lensIndex分组
-        index_service = IndexService(session=self.session, token_value=self.tokenValue)
+        index_service = IndexService(session=self.session, token_value=self.tokenValue, region=self.region)
         index_groups = index_service.groupIndexesByLensIndex(atg_compatible_lenses)
         
-        tint_service = TintService(session=self.session, token_value=self.tokenValue)
+        tint_service = TintService(session=self.session, token_value=self.tokenValue, region=self.region)
         # 比如1.5对应的所有tint，1.61对应的所有tint的map
         lens_tints_map: dict[str, List[TintItem]] = {}
         # 比如1.5对应的所有coating，1.61对应的所有coating的map
@@ -123,7 +124,7 @@ class LensPackageGeneratorService:
             lens_tints_map[lens_index] = lens_tints
             # 对每个lens_item调用CoatingService并校验coating
             from lenspackage.lcapi.CoatingService import CoatingService
-            coating_service = CoatingService(session=self.session, token_value=self.tokenValue)
+            coating_service = CoatingService(session=self.session, token_value=self.tokenValue, region=self.region)
 
             # 存储每个lens_item的最高价格coating
             max_price_coatings = {}
@@ -170,7 +171,7 @@ class LensPackageGeneratorService:
 
         # 校验完成后，为TintItem填充lensPackageIndexTintList字段
         print(f"\n------> Populating lensPackageIndexTintList for TintItems")
-        processed_first_tints = populateLensPackageIndexTintList(lens_tints_map)
+        processed_first_tints = populateLensPackageIndexTintList(lens_tints_map, self.region)
         print(f"\n------> Populating lensPackageIndexTintList for TintItems end")
         
         # 使用处理后的数据，原始lens_tints_map保持不变
@@ -200,8 +201,7 @@ class LensPackageGeneratorService:
             LensPackage, CoatingType, Index, LensType,
             RxType, CompatibleTintsType, TintItem, CostType
         )
-        from lenspackage.LensPackageConstant import decideRegion
-        
+
         # 1. 从CsvPackage获取基础信息
         # 解析LensType (e.g. "BlokzGeneralUse:Blokz")
         lens_type = LensType(
@@ -216,7 +216,7 @@ class LensPackageGeneratorService:
             representative_coating = list(lens_coating_map.values())[0]
         
         coating_type = CoatingType(
-            cost=[CostType(region=decideRegion(), price=representative_coating.price)] if representative_coating else [],
+            cost=[CostType(region=self.region, price=representative_coating.price)] if representative_coating else [],
             displayName=representative_coating.coatingResistantType if representative_coating else "",
             sku=representative_coating.sku if representative_coating else ""
         )
@@ -283,7 +283,7 @@ class LensPackageGeneratorService:
         
         # 生成文件名（包含时间戳）
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{decideRegion()}_product_packages_{timestamp}.json"
+        filename = f"{self.region}_product_packages_{timestamp}.json"
         filepath = os.path.join(output_dir, filename)
         
         # 将ProductPackage对象转换为字典
@@ -325,7 +325,7 @@ class LensPackageGeneratorService:
         all_product_packages = []
         
         for productPackage in csvProductIdPackages:
-            pdp_service = PdpService(session=self.session, token_value=self.tokenValue)
+            pdp_service = PdpService(session=self.session, token_value=self.tokenValue, region=self.region)
             product_skus =pdp_service.getPdp(productPackage.productId)
             # 目前只使用一个sku进行查询，后续需要考虑是否需要遍历每个sku，理论上一个productId下面的每个sku只是颜色不同，走lc流程的所有数据都是一样的
             picked_sku = product_skus[0]

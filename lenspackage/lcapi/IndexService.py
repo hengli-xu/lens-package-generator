@@ -1,6 +1,6 @@
 import requests
 
-from lenspackage.LensPackageConstant import getDefaultRx, csv_lens_type_map, decideRegion
+from lenspackage.LensPackageConstant import getDefaultRx, csv_lens_type_map, US_REGION
 from settings import env_key, yaml_cfg
 from lenspackage.datamodels.data_models import (
     CompatibleLens,
@@ -10,10 +10,11 @@ from lenspackage.datamodels.data_models import (
 )
 
 class IndexService:
-    def __init__(self, session=None, token_value=None):
+    def __init__(self, session=None, token_value=None, region=None):
         self.session = session or requests.Session()
         self.token_value = token_value
-        config = yaml_cfg[decideRegion()][env_key]
+        self.region = region or US_REGION  # Default to US_REGION if no region provided
+        config = yaml_cfg[self.region][env_key]
         self.atg_host = config['atg_host']
 
         self.headers = {
@@ -85,7 +86,7 @@ class IndexService:
         matched_lenses = self.filter_lenses_by_index(compatible_lenses, csv_index_float)
 
         # 使用data class创建压缩数据格式
-        compressed_indexes = self.create_compressed_lens_indexes(matched_lenses, decideRegion())
+        compressed_indexes = self.create_compressed_lens_indexes(matched_lenses, self.region)
 
         return matched_lenses, compressed_indexes
 
@@ -107,7 +108,7 @@ class IndexService:
         """
         from lenspackage.lcapi.TintService import TintService
         
-        tint_service = TintService(session=self.session, token_value=self.token_value)
+        tint_service = TintService(session=self.session, token_value=self.token_value, region=self.region)
         all_tints = []
 
         # 获取每个indexSku的tint结果

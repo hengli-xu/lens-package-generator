@@ -28,7 +28,7 @@ US:
   QA:
     host: "https://auth.zenniaws.com"
     atg_host: "qaus.zenniaws.com"
-    application_id: "5b41ad86-8d2d-4669-8cae-e01df5b02f81"
+    application_id: "6fc3a174-39c6-4861-9954-a38a909d97e6"
     api_key: "7OgTVLgceTwxbQteijFY1Sa-2j9LW9Hb3CdSas5l_Izl1JmdrHOT7XWm"
     login_id: "apitest1@us.com"
     password: "Zn@12345"
@@ -37,7 +37,7 @@ US:
   SIT:
     host: "https://auth.zenniaws.com"
     atg_host: "situs.zenniaws.com"
-    application_id: "3e0de0f7-addd-4fa3-9edf-2fd66df71c68"
+    application_id: "78dc5fef-fc51-483e-97f9-e714075286be"
     api_key: "mcH3dfCmghVJV9iqbazuASTJrus_E4YIeT8J4dpF2UFauClII5DG8Qho"
     login_id: "apitest1@us.com"
     password: "Zn@12345"

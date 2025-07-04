@@ -1,4 +1,5 @@
-from lenspackage.LensPackageConstant import decideRegion
+from lenspackage.LensPackageConstant import US_REGION
+from lenspackage.datamodels.data_models import CompatibleTintsType, TintItem, CompatibleTintsConfigurationResponse
 
 lc_tints_config = {
     "tints": [
@@ -186,12 +187,13 @@ def validateTintConsistency(lens_tints_map):
     return validation_passed
 
 
-def populateLensPackageIndexTintList(lens_tints_map):
+def populateLensPackageIndexTintList(lens_tints_map, region=US_REGION):
     """
     为lens_tints_map中第一个基准的TintItem填充lensPackageIndexTintList字段
     
     Args:
         lens_tints_map: 包含每个lensIndex对应tint列表的字典
+        region: 区域参数，默认为US_REGION
         
     Returns:
         list: 包含填充了lensPackageIndexTintList的第一个基准TintItem列表
@@ -239,7 +241,7 @@ def populateLensPackageIndexTintList(lens_tints_map):
         if reference_tint.sku:  # sku不为空，直接填充当前tint的信息
             # 创建CostType
             cost_type = CostType(
-                region=decideRegion(),  # 默认区域，可以根据需要调整
+                region=region,  # 使用传入的区域参数
                 price=reference_tint.price
             )
             
@@ -260,7 +262,7 @@ def populateLensPackageIndexTintList(lens_tints_map):
                     if tint.tintBase == reference_tint.tintBase:
                         # 创建CostType
                         cost_type = CostType(
-                            region=decideRegion(),  # 默认区域，可以根据需要调整
+                            region=region,  # 使用传入的区域参数
                             price=tint.price
                         )
                         

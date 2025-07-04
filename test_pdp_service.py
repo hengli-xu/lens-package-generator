@@ -10,13 +10,14 @@ import os
 # 添加项目根目录到Python路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from lenspackage.LensPackageConstant import US_REGION
 from lenspackage.lcapi.PdpService import PdpService
 
 def test_sku_extraction():
     """测试SKU ID提取功能"""
     
     # 创建PdpService实例（不传递token，仅用于测试）
-    pdp_service = PdpService()
+    pdp_service = PdpService(region=US_REGION)
     
     # 模拟API响应数据
     mock_response_data = {
@@ -64,7 +65,7 @@ def test_with_real_api_call():
     
     # 这里你可以传入真实的token进行测试
     # token = "your_real_token_here"
-    # pdp_service = PdpService(token_value=token)
+    # pdp_service = PdpService(token_value=token, region=US_REGION)
     # result = pdp_service.getPdp("20189")
     
     print("跳过真实API调用测试（需要token）")

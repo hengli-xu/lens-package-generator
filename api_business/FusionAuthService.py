@@ -3,15 +3,15 @@ import json
 from http.cookies import SimpleCookie
 import yaml
 
-from lenspackage.LensPackageConstant import decideRegion
+from lenspackage.LensPackageConstant import US_REGION
 from settings import env_key, yaml_cfg
 
 
-class CAFusionAuthService:
+class FusionAuthService:
 
-    def __init__(self):
-
-        config = yaml_cfg["CA"][env_key]
+    def __init__(self, region=None):
+        self.region = region or US_REGION  # Default to US_REGION if no region provided
+        config = yaml_cfg[self.region][env_key]
         self.host = config['host']
         self.application_id = config['application_id']
         self.api_key = config['api_key']
